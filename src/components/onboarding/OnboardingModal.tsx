@@ -58,7 +58,7 @@ export function OnboardingModal({ open }: OnboardingModalProps) {
         graduation_year: data.graduation_year,
         onboarding_completed: true,
       });
-      toast.success('Welcome to StreetReady!');
+      toast.success('Welcome to OfferReady!');
     } catch (error) {
       toast.error('Failed to save profile');
     } finally {
@@ -70,7 +70,7 @@ export function OnboardingModal({ open }: OnboardingModalProps) {
     <Dialog open={open}>
       <DialogContent className="sm:max-w-[425px]" hideCloseButton>
         <DialogHeader>
-          <DialogTitle>Welcome to StreetReady</DialogTitle>
+          <DialogTitle>Welcome to OfferReady</DialogTitle>
           <DialogDescription>
             Let's set up your profile to get started with your recruiting journey.
           </DialogDescription>

@@ -46,7 +46,7 @@ export function AppSidebar() {
             className="w-8 h-8 rounded-lg"
           />
           {!collapsed && (
-            <span className="font-semibold text-foreground">StreetReady</span>
+            <span className="font-semibold text-foreground">OfferReady</span>
           )}
         </div>
       </SidebarHeader>

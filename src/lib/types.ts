@@ -1,4 +1,4 @@
-// StreetReady Type Definitions
+// OfferReady Type Definitions
 
 export type ConnectionType = 'cold' | 'alumni' | 'friend' | 'referral';
 

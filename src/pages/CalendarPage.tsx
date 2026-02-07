@@ -10,7 +10,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useContacts } from '@/hooks/useContacts';
 import { useCallEvents } from '@/hooks/useCallEvents';
 import { useInteractions } from '@/hooks/useInteractions';
-import { useGoogleCalendar, type GCalEvent } from '@/hooks/useGoogleCalendar';
+import { useGoogleCalendar, type GCalEvent, type PendingContact } from '@/hooks/useGoogleCalendar';
+import { ReviewNewContactsModal } from '@/components/calendar/ReviewNewContactsModal';
 import { ScheduleCallModal } from '@/components/calendar/ScheduleCallModal';
 import { EditCallModal } from '@/components/calendar/EditCallModal';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ export function CalendarPage() {
   const { contacts } = useContacts(user?.id);
   const { callEvents, isLoading, createCallEvent, updateCallEvent, updateCallEventStatus, deleteCallEvent } = useCallEvents(user?.id);
   const { createInteraction } = useInteractions(user?.id, undefined);
-  const { isConnected: gcalConnected, isCheckingConnection, connectGoogleCalendar, disconnectGoogleCalendar, pushToGoogleCalendar, fetchGoogleEvents } = useGoogleCalendar();
+  const { isConnected: gcalConnected, isCheckingConnection, connectGoogleCalendar, disconnectGoogleCalendar, pushToGoogleCalendar, fetchGoogleEvents, syncGcalCalls, confirmContacts } = useGoogleCalendar();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Handle OAuth redirect query params
@@ -44,6 +45,8 @@ export function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedEvent, setSelectedEvent] = useState<(CallEvent & { contact?: { id: string; name: string; firm: string | null } }) | null>(null);
   const [gcalEvents, setGcalEvents] = useState<GCalEvent[]>([]);
+  const [pendingContacts, setPendingContacts] = useState<PendingContact[]>([]);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
 
   // Fetch Google Calendar events for the visible date range
   const loadGcalEvents = useCallback(async (start: Date, end: Date) => {
@@ -71,7 +74,7 @@ export function CalendarPage() {
     }
   }, [gcalConnected, loadGcalEvents]);
 
-  // Get the set of GCal event IDs that were pushed from StreetReady
+  // Get the set of GCal event IDs that were pushed from OfferReady
   const pushedGcalIds = useMemo(() => {
     return new Set(
       callEvents
@@ -81,7 +84,7 @@ export function CalendarPage() {
   }, [callEvents]);
 
   const events: EventInput[] = useMemo(() => {
-    // StreetReady call events
+    // OfferReady call events
     const srEvents: EventInput[] = callEvents.map((event) => {
       const contact = event.contact;
       const displayTitle = contact
@@ -103,7 +106,7 @@ export function CalendarPage() {
         borderColor: colorMap[event.status],
         extendedProps: {
           ...event,
-          source: 'streetready',
+          source: 'offerready',
         },
       };
     });
@@ -296,6 +299,37 @@ export function CalendarPage() {
                   Google Calendar connected
                 </span>
                 <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    const now = new Date();
+                    const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+                    const timeMax = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()).toISOString();
+                    syncGcalCalls.mutate(
+                      { timeMin, timeMax },
+                      {
+                        onSuccess: (data) => {
+                          if (data.synced > 0) {
+                            toast.success(
+                              `Synced ${data.synced} call${data.synced > 1 ? 's' : ''} to pipeline`,
+                            );
+                          }
+                          if (data.pending_contacts && data.pending_contacts.length > 0) {
+                            setPendingContacts(data.pending_contacts);
+                            setReviewModalOpen(true);
+                          } else if (data.synced === 0) {
+                            toast.info('No new calls to sync');
+                          }
+                        },
+                        onError: () => toast.error('Failed to sync calls from Google Calendar'),
+                      },
+                    );
+                  }}
+                  disabled={syncGcalCalls.isPending}
+                >
+                  {syncGcalCalls.isPending ? 'Syncing...' : 'Sync Calls to Pipeline'}
+                </Button>
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => disconnectGoogleCalendar.mutate(undefined, {
@@ -375,6 +409,25 @@ export function CalendarPage() {
         onDelete={handleDeleteCall}
         onLogInteraction={handleLogInteraction}
         isSubmitting={updateCallEvent.isPending}
+      />
+
+      <ReviewNewContactsModal
+        open={reviewModalOpen}
+        onOpenChange={setReviewModalOpen}
+        pendingContacts={pendingContacts}
+        onConfirm={(confirmed) => {
+          confirmContacts.mutate(confirmed, {
+            onSuccess: (data) => {
+              toast.success(
+                `Created ${data.created} contact${data.created !== 1 ? 's' : ''} and synced to pipeline`,
+              );
+              setReviewModalOpen(false);
+              setPendingContacts([]);
+            },
+            onError: () => toast.error('Failed to create contacts'),
+          });
+        }}
+        isSubmitting={confirmContacts.isPending}
       />
     </div>
   );

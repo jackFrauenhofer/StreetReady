@@ -17,6 +17,31 @@ export interface GCalEvent {
   status: string;
 }
 
+export interface PendingContact {
+  email: string;
+  displayName: string;
+  gcalEventId: string;
+  eventTitle: string;
+  startAt: string;
+  endAt: string;
+  location: string | null;
+  notes: string | null;
+}
+
+export interface ConfirmedContact {
+  name: string;
+  email: string;
+  firm?: string;
+  position?: string;
+  connection_type: 'cold' | 'alumni' | 'friend' | 'referral';
+  gcalEventId: string;
+  eventTitle: string;
+  startAt: string;
+  endAt: string;
+  location?: string | null;
+  notes?: string | null;
+}
+
 export function useGoogleCalendar() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -134,6 +159,70 @@ export function useGoogleCalendar() {
     return data.events ?? [];
   };
 
+  // Sync GCal calls into the pipeline (match/create contacts, create call_events, move to scheduled)
+  const syncGcalCalls = useMutation({
+    mutationFn: async ({ timeMin, timeMax }: { timeMin: string; timeMax: string }) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Not logged in');
+
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/gcal-sync-calls`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ timeMin, timeMax }),
+      });
+
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        console.error('GCal sync failed:', resp.status, errBody);
+        throw new Error(`Google Calendar sync failed (${resp.status})`);
+      }
+
+      return resp.json() as Promise<{ synced: number; skipped: number; pending_contacts: PendingContact[] }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['callEvents', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['upcomingCalls', user?.id] });
+    },
+  });
+
+  // Confirm and create contacts after user review
+  const confirmContacts = useMutation({
+    mutationFn: async (contacts: ConfirmedContact[]) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Not logged in');
+
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/gcal-confirm-contacts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ contacts }),
+      });
+
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        console.error('Confirm contacts failed:', resp.status, errBody);
+        throw new Error(`Failed to create contacts (${resp.status})`);
+      }
+
+      return resp.json() as Promise<{ created: number }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['callEvents', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['upcomingCalls', user?.id] });
+    },
+  });
+
   return {
     isConnected,
     isCheckingConnection,
@@ -141,5 +230,7 @@ export function useGoogleCalendar() {
     disconnectGoogleCalendar,
     pushToGoogleCalendar,
     fetchGoogleEvents,
+    syncGcalCalls,
+    confirmContacts,
   };
 }

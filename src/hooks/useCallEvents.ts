@@ -109,14 +109,31 @@ export function useCallEvents(userId: string | undefined) {
 
   const deleteCallEvent = useMutation({
     mutationFn: async (id: string) => {
+      // Get the call event first to know the contact_id and status
+      const { data: callEvent, error: fetchError } = await supabase
+        .from('call_events')
+        .select('contact_id, status')
+        .eq('id', id)
+        .single();
+      if (fetchError) throw fetchError;
+
       const { error } = await supabase
         .from('call_events')
         .delete()
         .eq('id', id);
       if (error) throw error;
+
+      // If the deleted call was scheduled, move the contact back to 'researching'
+      if (callEvent && callEvent.status === 'scheduled') {
+        await supabase
+          .from('contacts')
+          .update({ stage: 'researching' })
+          .eq('id', callEvent.contact_id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['callEvents', userId] });
+      queryClient.invalidateQueries({ queryKey: ['contacts', userId] });
     },
   });
 
