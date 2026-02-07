@@ -32,6 +32,8 @@ import { useContacts } from '@/hooks/useContacts';
 import { useAuth } from '@/hooks/useAuth';
 import { CONNECTION_TYPES, type ConnectionType } from '@/lib/types';
 import { toast } from 'sonner';
+import { useSubscription, type UsageData } from '@/hooks/useSubscription';
+import { PaywallModal } from '@/components/paywall/PaywallModal';
 
 const contactSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -49,6 +51,9 @@ export function AddContactModal() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
   const { createContact } = useContacts(user?.id);
+  const { checkUsage } = useSubscription();
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallUsage, setPaywallUsage] = useState<UsageData | null>(null);
 
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -62,6 +67,18 @@ export function AddContactModal() {
       notes_summary: '',
     },
   });
+
+  const handleOpenChange = async (newOpen: boolean) => {
+    if (newOpen) {
+      const result = await checkUsage('contact');
+      if (!result.allowed) {
+        setPaywallUsage(result.usage);
+        setPaywallOpen(true);
+        return;
+      }
+    }
+    setOpen(newOpen);
+  };
 
   const onSubmit = async (data: ContactFormData) => {
     try {
@@ -88,7 +105,8 @@ export function AddContactModal() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
@@ -230,5 +248,13 @@ export function AddContactModal() {
         </Form>
       </DialogContent>
     </Dialog>
+
+    <PaywallModal
+      open={paywallOpen}
+      onOpenChange={setPaywallOpen}
+      feature="contact"
+      usage={paywallUsage}
+    />
+    </>
   );
 }

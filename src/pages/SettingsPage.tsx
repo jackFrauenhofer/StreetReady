@@ -1,8 +1,11 @@
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Form,
   FormControl,
@@ -15,6 +18,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useSubscription } from '@/hooks/useSubscription';
+import { PaywallModal } from '@/components/paywall/PaywallModal';
 import { toast } from 'sonner';
 
 const profileSchema = z.object({
@@ -30,6 +35,23 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 export function SettingsPage() {
   const { user } = useAuth();
   const { profile, updateProfile, isLoading } = useProfile(user?.id);
+  const { subscription, isLoadingSubscription, createCheckoutSession, createPortalSession, refreshSubscription } = useSubscription();
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle checkout redirect
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      toast.success('Subscription activated! Welcome to Pro.');
+      refreshSubscription();
+      searchParams.delete('checkout');
+      setSearchParams(searchParams, { replace: true });
+    } else if (searchParams.get('checkout') === 'canceled') {
+      toast.info('Checkout canceled');
+      searchParams.delete('checkout');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, refreshSubscription]);
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -209,6 +231,73 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Subscription</CardTitle>
+          <CardDescription>
+            Manage your plan and billing
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">Current Plan</p>
+                <Badge variant={subscription.isPro ? 'default' : 'secondary'}>
+                  {subscription.isPro
+                    ? subscription.plan === 'pro_annual' ? 'Pro (Annual)' : 'Pro (Monthly)'
+                    : 'Free'}
+                </Badge>
+                {subscription.status === 'trialing' && (
+                  <Badge variant="outline" className="text-primary">
+                    Trial
+                  </Badge>
+                )}
+              </div>
+              {subscription.isPro && subscription.currentPeriodEnd && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {subscription.cancelAtPeriodEnd
+                    ? `Cancels on ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
+                    : `Renews on ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`}
+                </p>
+              )}
+              {subscription.status === 'trialing' && subscription.trialEnd && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Trial ends {new Date(subscription.trialEnd).toLocaleDateString()}
+                </p>
+              )}
+              {!subscription.isPro && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Limited to 1 mock interview, 5 flashcards, 3 connections
+                </p>
+              )}
+            </div>
+            {subscription.isPro ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  createPortalSession.mutate(undefined, {
+                    onSuccess: (data) => { window.location.href = data.url; },
+                    onError: () => toast.error('Failed to open billing portal'),
+                  });
+                }}
+                disabled={createPortalSession.isPending}
+              >
+                {createPortalSession.isPending ? 'Loading...' : 'Manage Subscription'}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => setPaywallOpen(true)}
+              >
+                Upgrade to Pro
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Integrations</CardTitle>
           <CardDescription>
             Connect external services to enhance your workflow
@@ -228,6 +317,11 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <PaywallModal
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+      />
     </div>
   );
 }

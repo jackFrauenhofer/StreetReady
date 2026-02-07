@@ -9,6 +9,8 @@ import { useFlashcardDeck, useStudySession, useUpdateFlashcardProgress } from '@
 import { StudyCard } from '@/components/flashcards/StudyCard';
 import type { FlashcardWithProgress } from '@/lib/flashcard-types';
 import { toast } from 'sonner';
+import { useSubscription, type UsageData } from '@/hooks/useSubscription';
+import { PaywallModal } from '@/components/paywall/PaywallModal';
 
 export function FlashcardStudyPage() {
   const { deckId } = useParams<{ deckId: string }>();
@@ -18,6 +20,9 @@ export function FlashcardStudyPage() {
   const { data: deckData, isLoading: deckLoading } = useFlashcardDeck(deckId, user?.id);
   const { data: dueCards, isLoading: cardsLoading, refetch } = useStudySession(deckId, user?.id);
   const updateProgress = useUpdateFlashcardProgress(user?.id);
+  const { checkUsage } = useSubscription();
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallUsage, setPaywallUsage] = useState<UsageData | null>(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sessionCards, setSessionCards] = useState<FlashcardWithProgress[]>([]);
@@ -37,6 +42,14 @@ export function FlashcardStudyPage() {
   const handleAnswer = async (correct: boolean) => {
     if (!user || !currentCard) {
       toast.error('Please log in to track your progress');
+      return;
+    }
+
+    // Check usage limit before every card answer
+    const result = await checkUsage('flashcard');
+    if (!result.allowed) {
+      setPaywallUsage(result.usage);
+      setPaywallOpen(true);
       return;
     }
 
@@ -174,6 +187,7 @@ export function FlashcardStudyPage() {
   }
 
   return (
+    <>
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -207,5 +221,13 @@ export function FlashcardStudyPage() {
         />
       )}
     </div>
+
+    <PaywallModal
+      open={paywallOpen}
+      onOpenChange={setPaywallOpen}
+      feature="flashcard"
+      usage={paywallUsage}
+    />
+    </>
   );
 }

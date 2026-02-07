@@ -8,6 +8,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useMockInterview } from '@/hooks/useMockInterview';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscription, type UsageData } from '@/hooks/useSubscription';
+import { PaywallModal } from '@/components/paywall/PaywallModal';
 import {
   MockInterviewTrack,
   MockInterviewDifficulty,
@@ -20,6 +22,9 @@ export function SessionSetupForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { createSession } = useMockInterview();
+  const { checkUsage } = useSubscription();
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallUsage, setPaywallUsage] = useState<UsageData | null>(null);
   
   const [sessionLength, setSessionLength] = useState<'15' | '30'>('15');
   const [track, setTrack] = useState<MockInterviewTrack>('technicals');
@@ -74,6 +79,19 @@ export function SessionSetupForm() {
     }
   };
 
+  const guardedStartSession = async (params: Parameters<typeof createSession.mutateAsync>[0]) => {
+    // Check usage limit before creating session
+    const result = await checkUsage('mock_interview');
+    if (!result.allowed) {
+      setPaywallUsage(result.usage);
+      setPaywallOpen(true);
+      return;
+    }
+
+    const session = await createSession.mutateAsync(params);
+    navigate(`/mock-interview/session/${session.id}`);
+  };
+
   const handleStartSession = async () => {
     if (selectedCategories.length === 0) {
       toast({
@@ -94,14 +112,12 @@ export function SessionSetupForm() {
     }
 
     try {
-      const session = await createSession.mutateAsync({
+      await guardedStartSession({
         track,
         categories: selectedCategories,
         difficulties: selectedDifficulties,
         session_length_minutes: parseInt(sessionLength),
       });
-
-      navigate(`/mock-interview/session/${session.id}`);
     } catch (error) {
       toast({
         title: 'Failed to start session',
@@ -113,14 +129,12 @@ export function SessionSetupForm() {
 
   const handleQuickStart = async () => {
     try {
-      const session = await createSession.mutateAsync({
+      await guardedStartSession({
         track: 'both',
         categories: [...TECHNICAL_CATEGORIES, ...BEHAVIORAL_CATEGORIES],
         difficulties: ['core', 'common', 'advanced'],
         session_length_minutes: 15,
       });
-
-      navigate(`/mock-interview/session/${session.id}`);
     } catch (error) {
       toast({
         title: 'Failed to start session',
@@ -131,6 +145,7 @@ export function SessionSetupForm() {
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Configure Your Session</CardTitle>
@@ -293,5 +308,13 @@ export function SessionSetupForm() {
         </div>
       </CardContent>
     </Card>
+
+    <PaywallModal
+      open={paywallOpen}
+      onOpenChange={setPaywallOpen}
+      feature="mock_interview"
+      usage={paywallUsage}
+    />
+    </>
   );
 }
