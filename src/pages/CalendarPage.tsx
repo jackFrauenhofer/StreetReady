@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -9,8 +10,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useContacts } from '@/hooks/useContacts';
 import { useCallEvents } from '@/hooks/useCallEvents';
 import { useInteractions } from '@/hooks/useInteractions';
+import { useGoogleCalendar, type GCalEvent } from '@/hooks/useGoogleCalendar';
 import { ScheduleCallModal } from '@/components/calendar/ScheduleCallModal';
 import { EditCallModal } from '@/components/calendar/EditCallModal';
+import { Button } from '@/components/ui/button';
 import type { CallEvent, CallEventStatus } from '@/lib/types';
 
 export function CalendarPage() {
@@ -18,14 +21,68 @@ export function CalendarPage() {
   const { contacts } = useContacts(user?.id);
   const { callEvents, isLoading, createCallEvent, updateCallEvent, updateCallEventStatus, deleteCallEvent } = useCallEvents(user?.id);
   const { createInteraction } = useInteractions(user?.id, undefined);
+  const { isConnected: gcalConnected, isCheckingConnection, connectGoogleCalendar, disconnectGoogleCalendar, pushToGoogleCalendar, fetchGoogleEvents } = useGoogleCalendar();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle OAuth redirect query params
+  useEffect(() => {
+    if (searchParams.get('gcal_connected') === 'true') {
+      toast.success('Google Calendar connected!');
+      searchParams.delete('gcal_connected');
+      setSearchParams(searchParams, { replace: true });
+    }
+    const gcalError = searchParams.get('gcal_error');
+    if (gcalError) {
+      toast.error(`Google Calendar error: ${gcalError}`);
+      searchParams.delete('gcal_error');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedEvent, setSelectedEvent] = useState<(CallEvent & { contact?: { id: string; name: string; firm: string | null } }) | null>(null);
+  const [gcalEvents, setGcalEvents] = useState<GCalEvent[]>([]);
+
+  // Fetch Google Calendar events for the visible date range
+  const loadGcalEvents = useCallback(async (start: Date, end: Date) => {
+    if (!gcalConnected) {
+      setGcalEvents([]);
+      return;
+    }
+    try {
+      const events = await fetchGoogleEvents(start.toISOString(), end.toISOString());
+      setGcalEvents(events);
+    } catch {
+      console.warn('Failed to load Google Calendar events');
+    }
+  }, [gcalConnected, fetchGoogleEvents]);
+
+  // Load GCal events on initial render and when connection status changes
+  useEffect(() => {
+    if (gcalConnected) {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      loadGcalEvents(start, end);
+    } else {
+      setGcalEvents([]);
+    }
+  }, [gcalConnected, loadGcalEvents]);
+
+  // Get the set of GCal event IDs that were pushed from StreetReady
+  const pushedGcalIds = useMemo(() => {
+    return new Set(
+      callEvents
+        .filter((e) => e.external_provider === 'google' && e.external_event_id)
+        .map((e) => e.external_event_id!),
+    );
+  }, [callEvents]);
 
   const events: EventInput[] = useMemo(() => {
-    return callEvents.map((event) => {
+    // StreetReady call events
+    const srEvents: EventInput[] = callEvents.map((event) => {
       const contact = event.contact;
       const displayTitle = contact
         ? `${contact.name}${contact.firm ? ` - ${contact.firm}` : ''}`
@@ -46,10 +103,32 @@ export function CalendarPage() {
         borderColor: colorMap[event.status],
         extendedProps: {
           ...event,
+          source: 'streetready',
         },
       };
     });
-  }, [callEvents]);
+
+    // Google Calendar overlay events (read-only, skip duplicates already pushed from SR)
+    const overlayEvents: EventInput[] = gcalEvents
+      .filter((ge) => ge.status !== 'cancelled' && !pushedGcalIds.has(ge.id))
+      .map((ge) => ({
+        id: `gcal-${ge.id}`,
+        title: `📅 ${ge.summary}`,
+        start: ge.start ?? undefined,
+        end: ge.end ?? undefined,
+        backgroundColor: '#4285F4',
+        borderColor: '#3367D6',
+        editable: false,
+        extendedProps: {
+          source: 'google',
+          htmlLink: ge.htmlLink,
+          description: ge.description,
+          location: ge.location,
+        },
+      }));
+
+    return [...srEvents, ...overlayEvents];
+  }, [callEvents, gcalEvents, pushedGcalIds]);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     setSelectedDate(selectInfo.start);
@@ -57,6 +136,17 @@ export function CalendarPage() {
   };
 
   const handleEventClick = (clickInfo: EventClickArg) => {
+    const source = clickInfo.event.extendedProps?.source;
+
+    // Google Calendar events open in a new tab
+    if (source === 'google') {
+      const htmlLink = clickInfo.event.extendedProps?.htmlLink;
+      if (htmlLink) {
+        window.open(htmlLink, '_blank', 'noopener');
+      }
+      return;
+    }
+
     const eventData = clickInfo.event.extendedProps as CallEvent & { contact?: { id: string; name: string; firm: string | null } };
     setSelectedEvent({
       ...eventData,
@@ -74,7 +164,7 @@ export function CalendarPage() {
     notes?: string;
   }) => {
     try {
-      await createCallEvent.mutateAsync({
+      const result = await createCallEvent.mutateAsync({
         contact_id: data.contact_id,
         title: data.title,
         start_at: new Date(data.start_at).toISOString(),
@@ -88,6 +178,17 @@ export function CalendarPage() {
       });
       toast.success('Call scheduled - contact moved to Scheduled stage');
       setScheduleModalOpen(false);
+
+      // Push to Google Calendar if connected
+      if (gcalConnected && result) {
+        pushToGoogleCalendar.mutate(
+          { callEventId: result.id, action: 'create' },
+          {
+            onSuccess: () => toast.success('Added to Google Calendar'),
+            onError: () => toast.error('Failed to sync with Google Calendar'),
+          },
+        );
+      }
     } catch (error) {
       toast.error('Failed to schedule call');
     }
@@ -110,6 +211,17 @@ export function CalendarPage() {
         notes: data.notes || null,
       });
       toast.success('Call updated');
+
+      // Push update to Google Calendar if connected
+      if (gcalConnected) {
+        pushToGoogleCalendar.mutate(
+          { callEventId: id, action: 'update' },
+          {
+            onSuccess: () => toast.success('Google Calendar updated'),
+            onError: () => toast.error('Failed to sync update with Google Calendar'),
+          },
+        );
+      }
     } catch (error) {
       toast.error('Failed to update call');
     }
@@ -130,6 +242,15 @@ export function CalendarPage() {
 
   const handleDeleteCall = async (id: string) => {
     try {
+      // Delete from Google Calendar first if connected
+      if (gcalConnected) {
+        try {
+          await pushToGoogleCalendar.mutateAsync({ callEventId: id, action: 'delete' });
+        } catch {
+          // Non-blocking — still delete locally
+          console.warn('Failed to delete from Google Calendar');
+        }
+      }
       await deleteCallEvent.mutateAsync(id);
       toast.success('Call deleted');
     } catch (error) {
@@ -161,9 +282,50 @@ export function CalendarPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
-        <p className="text-muted-foreground">Schedule and manage your calls</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
+          <p className="text-muted-foreground">Schedule and manage your calls</p>
+        </div>
+        <div>
+          {!isCheckingConnection && (
+            gcalConnected ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+                  Google Calendar connected
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => disconnectGoogleCalendar.mutate(undefined, {
+                    onSuccess: () => toast.success('Google Calendar disconnected'),
+                    onError: () => toast.error('Failed to disconnect'),
+                  })}
+                  disabled={disconnectGoogleCalendar.isPending}
+                >
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={connectGoogleCalendar}
+                className="gap-2"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 2h12v4H6V2z" fill="#4285F4"/>
+                  <path d="M18 6v12H6V6h12z" fill="#FBBC04"/>
+                  <path d="M6 18h12v4H6v-4z" fill="#34A853"/>
+                  <path d="M2 6h4v12H2V6z" fill="#EA4335"/>
+                  <path d="M18 6h4v12h-4V6z" fill="#4285F4"/>
+                </svg>
+                Connect Google Calendar
+              </Button>
+            )
+          )}
+        </div>
       </div>
 
       <div className="bg-card rounded-lg border p-4">
@@ -182,6 +344,9 @@ export function CalendarPage() {
           weekends={true}
           select={handleDateSelect}
           eventClick={handleEventClick}
+          datesSet={(dateInfo) => {
+            loadGcalEvents(dateInfo.start, dateInfo.end);
+          }}
           height="auto"
           eventDisplay="block"
           eventTimeFormat={{
