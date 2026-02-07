@@ -8,6 +8,7 @@ export interface UserResume {
   file_path: string;
   file_size: number | null;
   extracted_text: string | null;
+  parsed_resume_json: Record<string, unknown> | null;
   uploaded_at: string;
   updated_at: string;
 }
@@ -67,7 +68,45 @@ export function useResume(userId: string | undefined) {
         .single();
 
       if (insertError) throw insertError;
-      return data;
+      return data as UserResume;
+    },
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey: ['resume', userId] });
+
+      // Trigger background resume processing
+      try {
+        await processResume.mutateAsync(data.id);
+      } catch (e) {
+        console.error('Resume processing failed (non-blocking):', e);
+      }
+    },
+  });
+
+  const processResume = useMutation({
+    mutationFn: async (resumeId: string) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Not authenticated');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/process-resume`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify({ resumeId }),
+      });
+
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        throw new Error(`Processing failed (${resp.status}): ${errBody}`);
+      }
+
+      return resp.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resume', userId] });
@@ -101,7 +140,9 @@ export function useResume(userId: string | undefined) {
   return {
     resume,
     isLoading,
+    isProcessing: processResume.isPending,
     uploadResume,
     deleteResume,
+    processResume,
   };
 }

@@ -126,6 +126,20 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Question not found' }, { status: 404 });
     }
 
+    // Fetch user's parsed resume for personalized feedback
+    let resumeContext = '';
+    const { data: resumeData } = await supabaseAdmin
+      .from('user_resumes')
+      .select('parsed_resume_json')
+      .eq('user_id', authedUserId)
+      .order('uploaded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (resumeData?.parsed_resume_json) {
+      resumeContext = `\n\nCandidate's resume summary (use this to personalize feedback and suggested answers):\n${JSON.stringify(resumeData.parsed_resume_json, null, 2)}`;
+    }
+
     const { data: audioBlob, error: downloadErr } = await supabaseAdmin
       .storage
       .from('mock-interview-recordings')
@@ -160,7 +174,7 @@ Deno.serve(async (req: Request) => {
     // LLM scoring
     const scoringPrompt = {
       role: 'user',
-      content: `You are an interview coach scoring a candidate's answer.\n\nQuestion:\n${question.question_text}\n\nCandidate answer (transcript):\n${transcript}\n\nReturn STRICT JSON with the following shape:\n{\n  "score_breakdown": {"structure": 0-10, "clarity": 0-10, "specificity": 0-10, "confidence": 0-10, "conciseness": 0-10},\n  "feedback": "...",\n  "suggested_answer": "..."\n}\n\nGuidelines:\n- Be constructive and specific.\n- Suggested answer should be concise and high quality.\n- Use integers 0-10.`,
+      content: `You are an interview coach scoring a candidate's answer.\n\nQuestion:\n${question.question_text}\n\nCandidate answer (transcript):\n${transcript}${resumeContext}\n\nReturn STRICT JSON with the following shape:\n{\n  "score_breakdown": {"structure": 0-10, "clarity": 0-10, "specificity": 0-10, "confidence": 0-10, "conciseness": 0-10},\n  "feedback": "...",\n  "suggested_answer": "..."\n}\n\nGuidelines:\n- Be constructive and specific.\n- If a resume summary is provided, use the candidate's REAL experiences, achievements, and background to craft the suggested answer. Reference specific companies, roles, projects, and accomplishments from their resume.\n- Suggested answer should be concise and high quality.\n- Use integers 0-10.`,
     };
 
     const chatResp = await fetch('https://api.openai.com/v1/chat/completions', {

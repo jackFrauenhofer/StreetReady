@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { FileText, Upload, Trash2, Check, Loader2 } from 'lucide-react';
+import { FileText, Upload, Trash2, Check, Loader2, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useResume } from '@/hooks/useResume';
@@ -10,7 +10,18 @@ import { format } from 'date-fns';
 
 export function ResumeUploader() {
   const { user } = useAuth();
-  const { resume, isLoading, uploadResume, deleteResume } = useResume(user?.id);
+  const { resume, isLoading, isProcessing, uploadResume, deleteResume, processResume } = useResume(user?.id);
+
+  const handleAnalyze = async () => {
+    if (!resume) return;
+    try {
+      await processResume.mutateAsync(resume.id);
+      toast.success('Resume analyzed successfully!');
+    } catch (error) {
+      console.error('Analysis error:', error);
+      toast.error('Failed to analyze resume');
+    }
+  };
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,6 +117,28 @@ export function ResumeUploader() {
               <p className="text-xs text-muted-foreground">
                 {formatFileSize(resume.file_size)} • Uploaded {format(new Date(resume.uploaded_at), 'MMM d, yyyy')}
               </p>
+              {isProcessing && (
+                <p className="text-xs text-primary flex items-center gap-1 mt-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Analyzing your resume...
+                </p>
+              )}
+              {!isProcessing && resume.parsed_resume_json && (
+                <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                  <Check className="h-3 w-3" />
+                  Resume analyzed — mock interviews will use your experience
+                </p>
+              )}
+              {!isProcessing && !resume.parsed_resume_json && (
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
+                  onClick={handleAnalyze}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Analyze resume for personalized interviews
+                </button>
+              )}
             </div>
             <div className="flex gap-2">
               <Button
