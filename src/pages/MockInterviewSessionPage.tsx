@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,15 +17,19 @@ import {
 import { InterviewTimer } from '@/components/mock-interview/InterviewTimer';
 import { AIInterviewerPanel } from '@/components/mock-interview/AIInterviewerPanel';
 import { AnswerRecorder } from '@/components/mock-interview/AnswerRecorder';
-import { PlaceholderScorecard } from '@/components/mock-interview/Scorecard';
+import { Scorecard } from '@/components/mock-interview/Scorecard';
 import { useMockInterviewSession } from '@/hooks/useMockInterview';
 import { useMockInterview } from '@/hooks/useMockInterview';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { FALLBACK_QUESTIONS, type AnswerState, type ScoreBreakdown } from '@/lib/mock-interview-types';
 
 export function MockInterviewSessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { session, questions, isLoading, addQuestion, addAnswer } = useMockInterviewSession(sessionId);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { session, questions, answers, isLoading, addQuestion, addAnswer } = useMockInterviewSession(sessionId);
   const { endSession } = useMockInterview();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -34,6 +39,9 @@ export function MockInterviewSessionPage() {
 
   // Get current question from DB or generate new one
   const currentQuestion = questions[currentQuestionIndex];
+  const answerForCurrentQuestion = currentQuestion
+    ? (answers.find((a) => a.question_id === currentQuestion.id) ?? null)
+    : null;
 
   // Generate first question when session loads
   useEffect(() => {
@@ -46,32 +54,75 @@ export function MockInterviewSessionPage() {
     }
   }, [session, questions.length, addQuestion]);
 
-  const handleAnswerComplete = useCallback(() => {
-    // Generate placeholder scores
-    const placeholderBreakdown: ScoreBreakdown = {
-      structure: Math.floor(Math.random() * 4) + 6,
-      clarity: Math.floor(Math.random() * 4) + 6,
-      specificity: Math.floor(Math.random() * 4) + 5,
-      confidence: Math.floor(Math.random() * 4) + 6,
-      conciseness: Math.floor(Math.random() * 4) + 6,
-    };
-    
-    const overallScore = Math.round(
-      Object.values(placeholderBreakdown).reduce((a, b) => a + b, 0) / 5 * 10
-    );
+  const handleAnswerComplete = useCallback(async (audio: Blob) => {
+    if (!user) throw new Error('Not authenticated');
+    if (!sessionId) throw new Error('No session');
+    if (!currentQuestion) throw new Error('No question');
 
-    if (currentQuestion) {
-      addAnswer.mutate({
-        questionId: currentQuestion.id,
-        scoreOverall: overallScore,
-        scoreBreakdown: placeholderBreakdown,
-        feedback: 'Good job structuring your answer. Consider being more specific with quantitative examples to strengthen your response.',
-        suggestedAnswer: 'This is a placeholder for an AI-generated improved answer that would be provided once the AI scoring is implemented.',
-      });
+    // Basic guardrails
+    const maxBytes = 25 * 1024 * 1024;
+    if (audio.size > maxBytes) {
+      throw new Error('Recording too large. Please record a shorter answer.');
     }
 
+    const fileExt = audio.type.includes('webm') ? 'webm' : 'webm';
+    const filePath = `${user.id}/${sessionId}/${currentQuestion.id}-${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase
+      .storage
+      .from('mock-interview-recordings')
+      .upload(filePath, audio, {
+        contentType: audio.type || 'audio/webm',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Upload failed:', uploadError);
+      throw uploadError;
+    }
+
+    const createdAnswer = await addAnswer.mutateAsync({
+      questionId: currentQuestion.id,
+      recordingUrl: filePath,
+    });
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      throw new Error('Not authenticated (missing access token)');
+    }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    const scoreResp = await fetch(
+      `${supabaseUrl}/functions/v1/score-mock-interview`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify({ answerId: createdAnswer.id }),
+      },
+    );
+
+    if (!scoreResp.ok) {
+      const errBody = await scoreResp.text();
+      console.error('Scoring failed:', scoreResp.status, errBody);
+      throw new Error(`Scoring failed (${scoreResp.status})`);
+    }
+
+    // Edge function already updates the row; ensure UI refetches.
+    await queryClient.invalidateQueries({ queryKey: ['mock-interview-answers', sessionId] });
+
     setAnswerState('scored');
-  }, [currentQuestion, addAnswer]);
+  }, [user, sessionId, currentQuestion, addAnswer, queryClient]);
 
   const handleNextQuestion = useCallback(() => {
     if (!session) return;
@@ -174,7 +225,23 @@ export function MockInterviewSessionPage() {
                   onStateChange={setAnswerState}
                 />
               ) : (
-                <PlaceholderScorecard onNextQuestion={handleNextQuestion} />
+                answerForCurrentQuestion &&
+                answerForCurrentQuestion.score_overall !== null &&
+                answerForCurrentQuestion.score_breakdown_json !== null &&
+                answerForCurrentQuestion.feedback !== null &&
+                answerForCurrentQuestion.suggested_answer !== null ? (
+                  <Scorecard
+                    overallScore={answerForCurrentQuestion.score_overall}
+                    breakdown={answerForCurrentQuestion.score_breakdown_json as unknown as ScoreBreakdown}
+                    feedback={answerForCurrentQuestion.feedback}
+                    suggestedAnswer={answerForCurrentQuestion.suggested_answer}
+                    onNextQuestion={handleNextQuestion}
+                  />
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">
+                    Scoring your answer...
+                  </div>
+                )
               )}
             </CardContent>
           </Card>

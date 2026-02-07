@@ -1,0 +1,6 @@
+# Supabase Edge Function configuration
+# We validate the JWT ourselves inside the function and enforce ownership,
+# so we disable platform JWT verification to avoid platform-level 401s.
+
+
+verify_jwt = false

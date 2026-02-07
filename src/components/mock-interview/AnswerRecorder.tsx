@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import type { AnswerState } from '@/lib/mock-interview-types';
 
 interface AnswerRecorderProps {
-  onComplete: () => void;
+  onComplete: (audio: Blob) => Promise<void> | void;
   answerState: AnswerState;
   onStateChange: (state: AnswerState) => void;
 }
@@ -17,6 +17,8 @@ export function AnswerRecorder({ onComplete, answerState, onStateChange }: Answe
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<BlobPart[]>([]);
 
   const requestMediaAccess = useCallback(async () => {
     try {
@@ -40,6 +42,9 @@ export function AnswerRecorder({ onComplete, answerState, onStateChange }: Answe
 
   useEffect(() => {
     return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -66,16 +71,51 @@ export function AnswerRecorder({ onComplete, answerState, onStateChange }: Answe
     }
   }, []);
 
-  const handleStart = useCallback(() => {
-    onStateChange('recording');
-  }, [onStateChange]);
+  const handleStart = useCallback(async () => {
+    try {
+      if (!streamRef.current) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: hasMediaAccess });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setHasMediaAccess(true);
+        setIsAudioEnabled(true);
+        if (stream.getVideoTracks().length > 0) {
+          setIsVideoEnabled(true);
+        }
+      }
+
+      recordedChunksRef.current = [];
+      const recorder = new MediaRecorder(streamRef.current, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm',
+      });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e: BlobEvent) => {
+        if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+
+      recorder.start(250);
+      onStateChange('recording');
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      onStateChange('idle');
+    }
+  }, [hasMediaAccess, onStateChange]);
 
   const handleStop = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === 'inactive') {
+      return;
+    }
+
     onStateChange('processing');
-    // Simulate processing delay
-    setTimeout(() => {
-      onComplete();
-    }, 1500);
+    recorder.onstop = async () => {
+      const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+      await onComplete(blob);
+    };
+    recorder.stop();
   }, [onStateChange, onComplete]);
 
   const handleReRecord = useCallback(() => {

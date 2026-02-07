@@ -1,1 +1,4 @@
 project_id = "xawhliqunvpccbdeqpda"
+
+[functions.score-mock-interview]
+verify_jwt = false

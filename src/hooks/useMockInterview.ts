@@ -153,12 +153,16 @@ export function useMockInterviewSession(sessionId: string | undefined) {
   const addAnswer = useMutation({
     mutationFn: async ({ 
       questionId, 
+      recordingUrl,
+      transcript,
       scoreOverall,
       scoreBreakdown,
       feedback,
       suggestedAnswer,
     }: { 
       questionId: string;
+      recordingUrl?: string;
+      transcript?: string;
       scoreOverall?: number;
       scoreBreakdown?: ScoreBreakdown;
       feedback?: string;
@@ -169,6 +173,8 @@ export function useMockInterviewSession(sessionId: string | undefined) {
       const insertData = {
         session_id: sessionId,
         question_id: questionId,
+        recording_url: recordingUrl ?? null,
+        transcript: transcript ?? null,
         score_overall: scoreOverall ?? null,
         score_breakdown_json: scoreBreakdown ? JSON.parse(JSON.stringify(scoreBreakdown)) : null,
         feedback: feedback ?? null,
