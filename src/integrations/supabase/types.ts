@@ -158,30 +158,42 @@ export type Database = {
       flashcards: {
         Row: {
           answer: string
+          category: string | null
           common_mistakes: string | null
           created_at: string
-          deck_id: string
+          deck_id: string | null
           difficulty: string
           id: string
           question: string
+          source: string | null
+          topic: string | null
+          track: string | null
         }
         Insert: {
           answer: string
+          category?: string | null
           common_mistakes?: string | null
           created_at?: string
-          deck_id: string
+          deck_id?: string | null
           difficulty?: string
           id?: string
           question: string
+          source?: string | null
+          topic?: string | null
+          track?: string | null
         }
         Update: {
           answer?: string
+          category?: string | null
           common_mistakes?: string | null
           created_at?: string
-          deck_id?: string
+          deck_id?: string | null
           difficulty?: string
           id?: string
           question?: string
+          source?: string | null
+          topic?: string | null
+          track?: string | null
         }
         Relationships: [
           {

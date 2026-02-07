@@ -1,13 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Search, GraduationCap, Layers, PlayCircle } from 'lucide-react';
+import { Search, GraduationCap, Layers } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { FlashcardDeckCard } from '@/components/flashcards/FlashcardDeckCard';
-import { ModellingModuleCard } from '@/components/modelling/ModellingModuleCard';
 import { useAuth } from '@/hooks/useAuth';
 import { useFlashcardDecks, useTrackProgress } from '@/hooks/useFlashcards';
-import { useModellingModules } from '@/hooks/useModelling';
 
 export function LearningPage() {
   const { user } = useAuth();
@@ -16,33 +14,12 @@ export function LearningPage() {
 
   const { data: techFlashcardDecks, isLoading: techLoading } = useFlashcardDecks('technicals', user?.id);
   const { data: behavFlashcardDecks, isLoading: behavLoading } = useFlashcardDecks('behaviorals', user?.id);
-  const { data: modellingModules, isLoading: modellingLoading } = useModellingModules(user?.id);
   const { data: techProgress } = useTrackProgress('technicals', user?.id);
   const { data: behavProgress } = useTrackProgress('behaviorals', user?.id);
 
-  // Calculate modelling progress
-  const modellingProgress = useMemo(() => {
-    if (!modellingModules || modellingModules.length === 0) return null;
-    const totalSteps = modellingModules.reduce((acc, m) => acc + (m.progress?.total || 0), 0);
-    const completedSteps = modellingModules.reduce((acc, m) => acc + (m.progress?.completed || 0), 0);
-    return {
-      total: totalSteps,
-      mastered: completedSteps,
-      percentage: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
-    };
-  }, [modellingModules]);
-
   const activeDecks = activeTrack === 'technicals' ? techFlashcardDecks : behavFlashcardDecks;
-  const isLoading = activeTrack === 'technicals' 
-    ? techLoading 
-    : activeTrack === 'behaviorals' 
-      ? behavLoading 
-      : modellingLoading;
-  const activeProgress = activeTrack === 'technicals' 
-    ? techProgress 
-    : activeTrack === 'behaviorals' 
-      ? behavProgress 
-      : modellingProgress;
+  const isLoading = activeTrack === 'technicals' ? techLoading : behavLoading;
+  const activeProgress = activeTrack === 'technicals' ? techProgress : behavProgress;
 
   const filteredDecks = useMemo(() => {
     if (!activeDecks) return [];
@@ -53,16 +30,6 @@ export function LearningPage() {
     );
   }, [activeDecks, searchQuery]);
 
-  const filteredModules = useMemo(() => {
-    if (!modellingModules) return [];
-    if (!searchQuery) return modellingModules;
-
-    return modellingModules.filter((module) =>
-      module.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      module.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [modellingModules, searchQuery]);
-
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -72,7 +39,7 @@ export function LearningPage() {
           Learning
         </h1>
         <p className="text-muted-foreground">
-          Master IB recruiting with flashcards and modelling tutorials
+          Master IB recruiting with flashcards
         </p>
       </div>
 
@@ -98,22 +65,13 @@ export function LearningPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="modelling" className="flex items-center gap-2">
-              <PlayCircle className="h-4 w-4" />
-              Modelling Prep
-              {modellingProgress && modellingProgress.total > 0 && (
-                <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
-                  {modellingProgress.percentage}%
-                </span>
-              )}
-            </TabsTrigger>
           </TabsList>
         </Tabs>
 
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder={activeTrack === 'modelling' ? 'Search modules...' : 'Search decks...'}
+            placeholder="Search decks..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -126,14 +84,10 @@ export function LearningPage() {
         <div className="p-4 rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-foreground">
-              {activeTrack === 'technicals' 
-                ? 'Technicals' 
-                : activeTrack === 'behaviorals' 
-                  ? 'Behaviorals' 
-                  : 'Modelling'} Progress
+              {activeTrack === 'technicals' ? 'Technicals' : 'Behaviorals'} Progress
             </span>
             <span className="text-sm text-muted-foreground">
-              {activeProgress.mastered} of {activeProgress.total} {activeTrack === 'modelling' ? 'steps' : 'cards'} {activeTrack === 'modelling' ? 'completed' : 'mastered'}
+              {activeProgress.mastered} of {activeProgress.total} cards mastered
             </span>
           </div>
           <Progress value={activeProgress.percentage} className="h-2" />
@@ -144,28 +98,9 @@ export function LearningPage() {
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-pulse text-muted-foreground">
-            Loading {activeTrack === 'modelling' ? 'modules' : 'flashcard decks'}...
+            Loading flashcard decks...
           </div>
         </div>
-      ) : activeTrack === 'modelling' ? (
-        // Modelling Modules Grid
-        filteredModules.length === 0 ? (
-          <div className="text-center py-12">
-            <PlayCircle className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery ? 'No matching modules found' : 'No modelling modules available yet'}
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Video tutorials will be added here soon!
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredModules.map((module) => (
-              <ModellingModuleCard key={module.id} module={module} />
-            ))}
-          </div>
-        )
       ) : (
         // Flashcard Decks Grid
         filteredDecks.length === 0 ? (
