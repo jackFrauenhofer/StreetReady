@@ -31,7 +31,7 @@ export function LearningPage() {
   }, [activeDecks, searchQuery]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div data-tour="learning-flashcards" className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">

@@ -134,7 +134,7 @@ export function ScheduleCallModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-tour="schedule-call-modal">
         <DialogHeader>
           <DialogTitle>
             {preselectedContactId && selectedContact 

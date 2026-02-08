@@ -247,6 +247,7 @@ export function ContactDetailPage() {
         <div className="flex items-center gap-2">
           <EditContactModal contact={contact} />
           <Button
+            data-tour="generate-email-btn"
             variant="outline"
             size="sm"
             disabled={generatingEmail}
@@ -355,7 +356,7 @@ export function ContactDetailPage() {
       <Tabs defaultValue="timeline" className="space-y-4">
         <TabsList>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="prep">Questions & Notes</TabsTrigger>
+          <TabsTrigger value="prep" data-tour="prep-tab">Questions & Notes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="timeline" className="space-y-4">
@@ -400,7 +401,7 @@ export function ContactDetailPage() {
 
         <TabsContent value="prep" className="space-y-4">
           {/* Questions Section */}
-          <Card>
+          <Card data-tour="prep-questions-section">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-medium">Prep Questions</CardTitle>
@@ -468,7 +469,7 @@ export function ContactDetailPage() {
           </Card>
 
           {/* Call Notes Section */}
-          <Card>
+          <Card data-tour="call-notes-section">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">Call Notes</CardTitle>
             </CardHeader>
@@ -498,7 +499,7 @@ export function ContactDetailPage() {
 
       {/* Email Preview Dialog */}
       <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" data-tour="email-dialog">
           <DialogHeader>
             <DialogTitle>Generated Email</DialogTitle>
           </DialogHeader>

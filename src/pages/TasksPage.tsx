@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, isPast, isToday } from 'date-fns';
 import { toast } from 'sonner';
 import { Plus, Trash2, Heart, ListTodo, Calendar, PhoneCall, Sparkles, Loader2, ChevronDown, ChevronRight, X, ExternalLink } from 'lucide-react';
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import type { PrepQuestion } from '@/lib/types';
+import { useTour } from '@/hooks/useTour';
 
 export function TasksPage() {
   const { user } = useAuth();
@@ -36,9 +37,46 @@ export function TasksPage() {
   const [expandedCalls, setExpandedCalls] = useState<Record<string, boolean>>({});
   const [newQuestionText, setNewQuestionText] = useState<Record<string, string>>({});
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const { phase } = useTour();
+
+  // Scroll a target element into view within the <main> scroll container
+  const scrollToTourTarget = (selector: string) => {
+    setTimeout(() => {
+      const el = document.querySelector(selector);
+      const main = document.querySelector('main');
+      if (el && main) {
+        const elRect = el.getBoundingClientRect();
+        const mainRect = main.getBoundingClientRect();
+        main.scrollTo({
+          top: main.scrollTop + elRect.top - mainRect.top - 20,
+          behavior: 'smooth',
+        });
+      }
+      window.dispatchEvent(new Event('resize'));
+    }, 150);
+  };
+
+  // Auto-expand the first call when the tour reaches the tasks-prepare phase,
+  // collapse all when leaving, and scroll to the relevant section for each tasks phase
+  useEffect(() => {
+    if (phase === 'tasks-prepare') {
+      if (upcomingCalls.length > 0) {
+        setExpandedCalls((prev) => ({ ...prev, [upcomingCalls[0].id]: true }));
+      }
+      scrollToTourTarget('[data-tour="prepare-for-calls"]');
+    } else if (phase === 'tasks-thankyou') {
+      setExpandedCalls({});
+      scrollToTourTarget('[data-tour="thank-you-notes"]');
+    } else if (phase === 'tasks-custom') {
+      setExpandedCalls({});
+      scrollToTourTarget('[data-tour="my-tasks"]');
+    }
+  }, [phase, upcomingCalls]);
 
   const toggleCallExpanded = (callId: string) => {
     setExpandedCalls((prev) => ({ ...prev, [callId]: !prev[callId] }));
+    // Trigger resize so joyride recalculates the spotlight area
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
   };
 
   const handleAddQuestion = async (contactId: string, questionsJson: unknown[] | null) => {
@@ -187,7 +225,7 @@ export function TasksPage() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button data-tour="add-task-btn">
               <Plus className="h-4 w-4 mr-2" />
               Add Task
             </Button>
@@ -229,22 +267,28 @@ export function TasksPage() {
       </div>
 
       {/* Prepare for Calls Section */}
-      {upcomingCalls.length > 0 && (
-        <Card className="border-l-4 border-l-blue-500/60">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <PhoneCall className="h-5 w-5 text-blue-600" />
-              Prepare for Calls
+      <Card data-tour="prepare-for-calls" className="border-l-4 border-l-blue-500/60">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <PhoneCall className="h-5 w-5 text-blue-600" />
+            Prepare for Calls
+            {upcomingCalls.length > 0 && (
               <Badge variant="secondary" className="ml-2">
                 {upcomingCalls.length} upcoming
               </Badge>
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Review contacts and prepare questions before your calls
+            )}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Review contacts and prepare questions before your calls
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {upcomingCalls.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No upcoming calls. Schedule a call from the Pipeline to see prep tasks here.
             </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {upcomingCalls.map((call) => {
+          ) : (
+            upcomingCalls.map((call) => {
               const isExpanded = expandedCalls[call.id];
               const questions = (call.contact?.prep_questions_json as PrepQuestion[]) || [];
               const contactId = call.contact?.id;
@@ -368,13 +412,13 @@ export function TasksPage() {
                   )}
                 </div>
               );
-            })}
-          </CardContent>
-        </Card>
-      )}
+            })
+          )}
+        </CardContent>
+      </Card>
 
       {/* Thank You Tasks Section */}
-      <Card>
+      <Card data-tour="thank-you-notes">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Heart className="h-5 w-5 text-destructive" />
@@ -425,7 +469,7 @@ export function TasksPage() {
       </Card>
 
       {/* Manual Tasks Section */}
-      <Card>
+      <Card data-tour="my-tasks">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <ListTodo className="h-5 w-5 text-primary" />

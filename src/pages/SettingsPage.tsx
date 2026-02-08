@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useTourContext } from '@/hooks/useTour';
 import { PaywallModal } from '@/components/paywall/PaywallModal';
 import { toast } from 'sonner';
 
@@ -39,6 +40,7 @@ export function SettingsPage() {
   const { subscription, isLoadingSubscription, createCheckoutSession, createPortalSession, refreshSubscription } = useSubscription();
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const { restartTour } = useTourContext();
 
   // Handle checkout redirect
   useEffect(() => {
@@ -335,6 +337,24 @@ export function SettingsPage() {
               Coming Soon
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Tour */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Product Tour</CardTitle>
+          <CardDescription>
+            Replay the guided walkthrough of OfferReady's features
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            onClick={() => restartTour()}
+          >
+            Retake Tour
+          </Button>
         </CardContent>
       </Card>
 

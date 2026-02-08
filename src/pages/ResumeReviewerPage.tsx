@@ -223,7 +223,7 @@ export function ResumeReviewerPage() {
               </div>
 
               {/* Review Button */}
-              <div className="flex items-center gap-3">
+              <div data-tour="review-resume-btn" className="flex items-center gap-3">
                 <Button
                   onClick={handleReview}
                   disabled={isReviewing || isProcessing || !canReview}
@@ -261,6 +261,7 @@ export function ResumeReviewerPage() {
             </div>
           ) : (
             <div
+              data-tour="resume-upload"
               className={cn(
                 'relative flex flex-col items-center justify-center gap-3 p-8 rounded-lg border-2 border-dashed transition-colors cursor-pointer',
                 isDragging
@@ -317,7 +318,7 @@ export function ResumeReviewerPage() {
       )}
 
       {review && !isReviewing && (
-        <div className="space-y-6">
+        <div data-tour="resume-feedback" className="space-y-6">
           {/* Overall Score */}
           <Card>
             <CardContent className="pt-6">

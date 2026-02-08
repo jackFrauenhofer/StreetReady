@@ -19,7 +19,7 @@ export function MockInterviewPage() {
       </div>
 
       {/* Setup Form */}
-      <div className="max-w-2xl">
+      <div data-tour="mock-interview-setup" className="max-w-2xl">
         <SessionSetupForm />
       </div>
     </div>

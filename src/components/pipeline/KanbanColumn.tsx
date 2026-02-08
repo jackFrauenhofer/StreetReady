@@ -25,6 +25,7 @@ export function KanbanColumn({ stage, contacts, scheduledCalls, onEditCall }: Ka
   return (
     <div
       ref={setNodeRef}
+      data-tour={`${stage}-column`}
       className={cn(
         'flex flex-col h-full bg-muted/40 rounded-xl border border-border/50 p-3',
         isOver && 'ring-2 ring-primary/30 bg-muted/60'

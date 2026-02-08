@@ -190,7 +190,7 @@ export function DashboardPage() {
       <OnboardingModal open={!!showOnboarding} />
 
       {/* NYC Skyline Hero Banner */}
-      <div className="relative -mx-6 -mt-6 mb-8 overflow-hidden rounded-b-2xl">
+      <div data-tour="dashboard-hero" className="relative -mx-6 -mt-6 mb-8 overflow-hidden rounded-b-2xl">
         <div className="absolute inset-0 z-0">
           <img src="/or_nyc_skyline2.jpeg" alt="" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.3)_0%,rgba(0,0,0,0.6)_55%,rgba(0,0,0,0.8)_100%)]" />

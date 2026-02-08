@@ -554,6 +554,7 @@ export type Database = {
           onboarding_completed: boolean | null
           recruiting_goal: string | null
           school: string | null
+          tour_completed: boolean | null
           updated_at: string
           user_id: string
           weekly_flashcards_goal: number | null
@@ -568,6 +569,7 @@ export type Database = {
           onboarding_completed?: boolean | null
           recruiting_goal?: string | null
           school?: string | null
+          tour_completed?: boolean | null
           updated_at?: string
           user_id: string
           weekly_flashcards_goal?: number | null
@@ -582,6 +584,7 @@ export type Database = {
           onboarding_completed?: boolean | null
           recruiting_goal?: string | null
           school?: string | null
+          tour_completed?: boolean | null
           updated_at?: string
           user_id?: string
           weekly_flashcards_goal?: number | null

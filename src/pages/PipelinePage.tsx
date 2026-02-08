@@ -337,7 +337,9 @@ export function PipelinePage() {
               className="pl-9 w-64"
             />
           </div>
-          <AddContactModal />
+          <div data-tour="add-contact-btn">
+            <AddContactModal />
+          </div>
         </div>
       </div>
 
@@ -348,15 +350,26 @@ export function PipelinePage() {
         onDragEnd={handleDragEnd}
       >
         <div className="grid grid-cols-4 gap-4 flex-1 min-h-0">
-          {PIPELINE_STAGES.map((stage) => (
+          <KanbanColumn
+            stage="researching"
+            contacts={contactsByStage.researching}
+          />
+          <div data-tour="messaged-scheduled-columns" className="col-span-2 grid grid-cols-2 gap-4">
             <KanbanColumn
-              key={stage}
-              stage={stage}
-              contacts={contactsByStage[stage]}
-              scheduledCalls={stage === 'scheduled' ? scheduledCallsByContact : undefined}
-              onEditCall={stage === 'scheduled' ? handleEditCall : undefined}
+              stage="messaged"
+              contacts={contactsByStage.messaged}
             />
-          ))}
+            <KanbanColumn
+              stage="scheduled"
+              contacts={contactsByStage.scheduled}
+              scheduledCalls={scheduledCallsByContact}
+              onEditCall={handleEditCall}
+            />
+          </div>
+          <KanbanColumn
+            stage="call_done"
+            contacts={contactsByStage.call_done}
+          />
         </div>
 
         <DragOverlay>
