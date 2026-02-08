@@ -165,6 +165,7 @@ export function CalendarPage() {
     end_at: string;
     location?: string;
     notes?: string;
+    sendInvite: boolean;
   }) => {
     try {
       const result = await createCallEvent.mutateAsync({
@@ -184,10 +185,14 @@ export function CalendarPage() {
 
       // Push to Google Calendar if connected
       if (gcalConnected && result) {
+        const contact = contacts.find((c) => c.id === data.contact_id);
+        const attendeeEmail = data.sendInvite && contact?.email ? contact.email : undefined;
         pushToGoogleCalendar.mutate(
-          { callEventId: result.id, action: 'create' },
+          { callEventId: result.id, action: 'create', attendeeEmail },
           {
-            onSuccess: () => toast.success('Added to Google Calendar'),
+            onSuccess: () => {
+              toast.success(attendeeEmail ? 'Added to Google Calendar — invite sent!' : 'Added to Google Calendar');
+            },
             onError: () => toast.error('Failed to sync with Google Calendar'),
           },
         );
@@ -398,6 +403,7 @@ export function CalendarPage() {
         onSubmit={handleScheduleCall}
         defaultDate={selectedDate}
         isSubmitting={createCallEvent.isPending}
+        gcalConnected={gcalConnected}
       />
 
       <EditCallModal

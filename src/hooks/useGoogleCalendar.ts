@@ -106,9 +106,11 @@ export function useGoogleCalendar() {
     mutationFn: async ({
       callEventId,
       action,
+      attendeeEmail,
     }: {
       callEventId: string;
       action: 'create' | 'update' | 'delete';
+      attendeeEmail?: string;
     }) => {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
@@ -121,7 +123,7 @@ export function useGoogleCalendar() {
           Authorization: `Bearer ${accessToken}`,
           apikey: SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ callEventId, action }),
+        body: JSON.stringify({ callEventId, action, attendeeEmail }),
       });
 
       if (!resp.ok) {

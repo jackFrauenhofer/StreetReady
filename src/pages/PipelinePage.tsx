@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useContacts } from '@/hooks/useContacts';
 import { useCallEvents, useScheduledCallsByContact } from '@/hooks/useCallEvents';
 import { useInteractions } from '@/hooks/useInteractions';
+import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { AddContactModal } from '@/components/contacts/AddContactModal';
 import { CallNotesModal } from '@/components/contacts/CallNotesModal';
 import { ScheduleCallModal } from '@/components/calendar/ScheduleCallModal';
@@ -37,6 +38,7 @@ export function PipelinePage() {
   const { createCallEvent, updateCallEvent, updateCallEventStatus, deleteCallEvent } = useCallEvents(user?.id);
   const scheduledCallsByContact = useScheduledCallsByContact(user?.id);
   const { createInteraction } = useInteractions(user?.id, undefined);
+  const { isConnected: gcalConnected, pushToGoogleCalendar } = useGoogleCalendar();
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -197,9 +199,10 @@ export function PipelinePage() {
     end_at: string;
     location?: string;
     notes?: string;
+    sendInvite: boolean;
   }) => {
     try {
-      await createCallEvent.mutateAsync({
+      const result = await createCallEvent.mutateAsync({
         contact_id: data.contact_id,
         title: data.title,
         start_at: new Date(data.start_at).toISOString(),
@@ -213,6 +216,21 @@ export function PipelinePage() {
       });
       toast.success('Call scheduled');
       setScheduleModal({ open: false, contact: null });
+
+      // Push to Google Calendar if connected
+      if (gcalConnected && result) {
+        const contact = contacts.find((c) => c.id === data.contact_id);
+        const attendeeEmail = data.sendInvite && contact?.email ? contact.email : undefined;
+        pushToGoogleCalendar.mutate(
+          { callEventId: result.id, action: 'create', attendeeEmail },
+          {
+            onSuccess: () => {
+              toast.success(attendeeEmail ? 'Added to Google Calendar — invite sent!' : 'Added to Google Calendar');
+            },
+            onError: () => toast.error('Failed to sync with Google Calendar'),
+          },
+        );
+      }
     } catch (error) {
       toast.error('Failed to schedule call');
     }
@@ -373,6 +391,7 @@ export function PipelinePage() {
         onSubmit={handleScheduleCall}
         isSubmitting={createCallEvent.isPending}
         preselectedContactId={scheduleModal.contact?.id}
+        gcalConnected={gcalConnected}
       />
 
       {/* Edit Call Modal for editing scheduled calls from pipeline */}

@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
     const userId = userData.user.id;
 
     // Parse body
-    const { callEventId, action } = await req.json();
+    const { callEventId, action, attendeeEmail } = await req.json();
     if (!callEventId || !action) {
       return jsonResponse({ error: 'Missing callEventId or action' }, { status: 400 });
     }
@@ -154,7 +154,7 @@ Deno.serve(async (req: Request) => {
       .filter(Boolean)
       .join('\n\n');
 
-    const gcalEvent = {
+    const gcalEvent: Record<string, unknown> = {
       summary: callEvent.title,
       description,
       location: callEvent.location || undefined,
@@ -168,6 +168,14 @@ Deno.serve(async (req: Request) => {
       },
     };
 
+    // Add attendee if email provided — Google will send them a calendar invite
+    if (attendeeEmail && typeof attendeeEmail === 'string') {
+      gcalEvent.attendees = [{ email: attendeeEmail }];
+      console.log('Adding attendee:', attendeeEmail);
+    } else {
+      console.log('No attendeeEmail provided, value was:', attendeeEmail);
+    }
+
     const gcalHeaders = {
       Authorization: `Bearer ${googleAccessToken}`,
       'Content-Type': 'application/json',
@@ -176,7 +184,12 @@ Deno.serve(async (req: Request) => {
     let result: any = null;
 
     if (action === 'create') {
-      const resp = await fetch(gcalBase, {
+      // sendUpdates=all tells Google to email invites to attendees
+      const url = attendeeEmail
+        ? `${gcalBase}?sendUpdates=all`
+        : gcalBase;
+      console.log('Creating gcal event at:', url, 'body:', JSON.stringify(gcalEvent));
+      const resp = await fetch(url, {
         method: 'POST',
         headers: gcalHeaders,
         body: JSON.stringify(gcalEvent),
@@ -198,7 +211,8 @@ Deno.serve(async (req: Request) => {
       const externalId = callEvent.external_event_id;
       if (!externalId) {
         // No GCal event yet — create instead
-        const resp = await fetch(gcalBase, {
+        const uUrl = attendeeEmail ? `${gcalBase}?sendUpdates=all` : gcalBase;
+        const resp = await fetch(uUrl, {
           method: 'POST',
           headers: gcalHeaders,
           body: JSON.stringify(gcalEvent),
@@ -214,7 +228,10 @@ Deno.serve(async (req: Request) => {
           .update({ external_provider: 'google', external_event_id: result.id })
           .eq('id', callEventId);
       } else {
-        const resp = await fetch(`${gcalBase}/${encodeURIComponent(externalId)}`, {
+        const pUrl = attendeeEmail
+          ? `${gcalBase}/${encodeURIComponent(externalId)}?sendUpdates=all`
+          : `${gcalBase}/${encodeURIComponent(externalId)}`;
+        const resp = await fetch(pUrl, {
           method: 'PUT',
           headers: gcalHeaders,
           body: JSON.stringify(gcalEvent),

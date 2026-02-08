@@ -33,6 +33,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Contact } from '@/lib/types';
@@ -51,7 +52,8 @@ interface ScheduleCallModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contacts: Contact[];
-  onSubmit: (data: ScheduleCallFormData & { title: string }) => Promise<void>;
+  onSubmit: (data: ScheduleCallFormData & { title: string; sendInvite: boolean }) => Promise<void>;
+  gcalConnected?: boolean;
   defaultDate?: Date;
   isSubmitting?: boolean;
   preselectedContactId?: string;
@@ -65,8 +67,10 @@ export function ScheduleCallModal({
   defaultDate,
   isSubmitting,
   preselectedContactId,
+  gcalConnected,
 }: ScheduleCallModalProps) {
   const [contactOpen, setContactOpen] = useState(false);
+  const [sendInvite, setSendInvite] = useState(false);
 
   const form = useForm<ScheduleCallFormData>({
     resolver: zodResolver(scheduleCallSchema),
@@ -108,6 +112,7 @@ export function ScheduleCallModal({
   useEffect(() => {
     if (!open) {
       form.reset();
+      setSendInvite(false);
     }
   }, [open, form]);
 
@@ -120,6 +125,7 @@ export function ScheduleCallModal({
     await onSubmit({
       ...data,
       title,
+      sendInvite,
     });
   };
 
@@ -268,6 +274,22 @@ export function ScheduleCallModal({
                 </FormItem>
               )}
             />
+
+            {gcalConnected && selectedContact?.email && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="send-invite"
+                  checked={sendInvite}
+                  onCheckedChange={(checked) => setSendInvite(checked === true)}
+                />
+                <label
+                  htmlFor="send-invite"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Send calendar invite to {selectedContact.name} ({selectedContact.email})
+                </label>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2">
               <Button
