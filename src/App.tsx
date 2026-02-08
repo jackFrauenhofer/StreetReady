@@ -19,7 +19,8 @@ import { FlashcardStudyPage } from "@/pages/FlashcardStudyPage";
 import { MockInterviewPage } from "@/pages/MockInterviewPage";
 import { MockInterviewSessionPage } from "@/pages/MockInterviewSessionPage";
 import { MockInterviewSummaryPage } from "@/pages/MockInterviewSummaryPage";
-import { TasksPage } from "@/pages/TasksPage";
+import { TasksPage } from '@/pages/TasksPage';
+import { ResumeReviewerPage } from '@/pages/ResumeReviewerPage';
 import { PrivacyPage } from "@/pages/PrivacyPage";
 import { TermsPage } from "@/pages/TermsPage";
 import NotFound from "./pages/NotFound";
@@ -102,6 +103,7 @@ const App = () => (
             <Route path="/learning/flashcards/:deckId" element={<FlashcardDeckPage />} />
             <Route path="/learning/flashcards/:deckId/study" element={<FlashcardStudyPage />} />
             <Route path="/learning/modelling/:moduleId" element={<ModellingModulePage />} />
+            <Route path="/resume-review" element={<ResumeReviewerPage />} />
             <Route path="/mock-interview" element={<MockInterviewPage />} />
             <Route path="/mock-interview/session/:sessionId" element={<MockInterviewSessionPage />} />
             <Route path="/mock-interview/session/:sessionId/summary" element={<MockInterviewSummaryPage />} />

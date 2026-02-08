@@ -9,8 +9,24 @@ export interface UserResume {
   file_size: number | null;
   extracted_text: string | null;
   parsed_resume_json: Record<string, unknown> | null;
+  review_json: ResumeReview | null;
   uploaded_at: string;
   updated_at: string;
+}
+
+export interface ResumeReview {
+  overall_score: number;
+  section_scores: {
+    formatting: number;
+    experience: number;
+    education: number;
+    skills: number;
+    impact_quantification: number;
+  };
+  strengths: string[];
+  weaknesses: string[];
+  improvements: { section: string; suggestion: string }[];
+  summary: string;
 }
 
 export function useResume(userId: string | undefined) {
@@ -29,7 +45,7 @@ export function useResume(userId: string | undefined) {
         .maybeSingle();
       
       if (error) throw error;
-      return data as UserResume | null;
+      return data as unknown as UserResume | null;
     },
     enabled: !!userId,
   });
@@ -68,7 +84,7 @@ export function useResume(userId: string | undefined) {
         .single();
 
       if (insertError) throw insertError;
-      return data as UserResume;
+      return data as unknown as UserResume;
     },
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['resume', userId] });
@@ -113,6 +129,37 @@ export function useResume(userId: string | undefined) {
     },
   });
 
+  const reviewResume = useMutation({
+    mutationFn: async (resumeId: string) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Not authenticated');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/review-resume`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify({ resumeId }),
+      });
+
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        throw new Error(`Review failed (${resp.status}): ${errBody}`);
+      }
+
+      return resp.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['resume', userId] });
+    },
+  });
+
   const deleteResume = useMutation({
     mutationFn: async () => {
       if (!userId || !resume) throw new Error('No resume to delete');
@@ -141,8 +188,10 @@ export function useResume(userId: string | undefined) {
     resume,
     isLoading,
     isProcessing: processResume.isPending,
+    isReviewing: reviewResume.isPending,
     uploadResume,
     deleteResume,
     processResume,
+    reviewResume,
   };
 }

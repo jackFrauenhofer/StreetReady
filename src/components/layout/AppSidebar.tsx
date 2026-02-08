@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Settings, LogOut, Calendar, GraduationCap, Mic, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, LogOut, Calendar, GraduationCap, Mic, CheckSquare, FileText } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +21,7 @@ const navItems = [
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'Tasks', url: '/tasks', icon: CheckSquare },
   { title: 'Learning', url: '/learning', icon: GraduationCap },
+  { title: 'Resume Review', url: '/resume-review', icon: FileText },
   { title: 'Mock Interviews', url: '/mock-interview', icon: Mic },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];

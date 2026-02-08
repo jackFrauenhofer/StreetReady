@@ -775,6 +775,7 @@ export type Database = {
           file_size: number | null
           id: string
           parsed_resume_json: Record<string, unknown> | null
+          review_json: Record<string, unknown> | null
           updated_at: string
           uploaded_at: string
           user_id: string
@@ -786,6 +787,7 @@ export type Database = {
           file_size?: number | null
           id?: string
           parsed_resume_json?: Record<string, unknown> | null
+          review_json?: Record<string, unknown> | null
           updated_at?: string
           uploaded_at?: string
           user_id: string
@@ -797,6 +799,7 @@ export type Database = {
           file_size?: number | null
           id?: string
           parsed_resume_json?: Record<string, unknown> | null
+          review_json?: Record<string, unknown> | null
           updated_at?: string
           uploaded_at?: string
           user_id?: string
