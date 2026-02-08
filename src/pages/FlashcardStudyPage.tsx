@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Trophy, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,10 +30,11 @@ export function FlashcardStudyPage() {
   const [sessionComplete, setSessionComplete] = useState(false);
   const [sessionStats, setSessionStats] = useState({ reviewed: 0, correct: 0 });
 
-  // Initialize session cards when due cards load
-  useMemo(() => {
-    if (dueCards && !sessionStarted) {
+  // Initialize session cards when due cards load (only once)
+  useEffect(() => {
+    if (dueCards && dueCards.length > 0 && !sessionStarted) {
       setSessionCards([...dueCards]);
+      setSessionStarted(true);
     }
   }, [dueCards, sessionStarted]);
 
@@ -86,6 +87,7 @@ export function FlashcardStudyPage() {
   const handleRestart = () => {
     setCurrentIndex(0);
     setSessionComplete(false);
+    setSessionStarted(false);
     setSessionStats({ reviewed: 0, correct: 0 });
     refetch();
   };
@@ -215,6 +217,7 @@ export function FlashcardStudyPage() {
       {/* Current card */}
       {currentCard && (
         <StudyCard
+          key={currentCard.id + '-' + currentIndex}
           card={currentCard}
           onAnswer={handleAnswer}
           isSubmitting={updateProgress.isPending}
