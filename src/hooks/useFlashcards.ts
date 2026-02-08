@@ -341,7 +341,9 @@ export function useUpdateFlashcardProgress(userId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['flashcardDecks'] });
       queryClient.invalidateQueries({ queryKey: ['flashcardDeck'] });
-      queryClient.invalidateQueries({ queryKey: ['studySession'] });
+      // Don't invalidate studySession here — the session is managed
+      // locally in FlashcardStudyPage state. Invalidating mid-session
+      // causes a refetch that overwrites the local card queue.
     },
   });
 }
