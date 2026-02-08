@@ -27,6 +27,7 @@ export interface ResumeReview {
   weaknesses: string[];
   improvements: { section: string; suggestion: string }[];
   summary: string;
+  reviewed_at?: string;
 }
 
 export function useResume(userId: string | undefined) {

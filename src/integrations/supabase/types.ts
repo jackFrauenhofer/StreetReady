@@ -84,6 +84,7 @@ export type Database = {
           notes_summary: string | null
           phone: string | null
           position: string | null
+          prep_questions_json: unknown[] | null
           relationship_strength: number | null
           stage: Database["public"]["Enums"]["contact_stage"] | null
           updated_at: string
@@ -104,6 +105,7 @@ export type Database = {
           notes_summary?: string | null
           phone?: string | null
           position?: string | null
+          prep_questions_json?: unknown[] | null
           relationship_strength?: number | null
           stage?: Database["public"]["Enums"]["contact_stage"] | null
           updated_at?: string
@@ -124,6 +126,7 @@ export type Database = {
           notes_summary?: string | null
           phone?: string | null
           position?: string | null
+          prep_questions_json?: unknown[] | null
           relationship_strength?: number | null
           stage?: Database["public"]["Enums"]["contact_stage"] | null
           updated_at?: string

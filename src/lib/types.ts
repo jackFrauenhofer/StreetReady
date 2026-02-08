@@ -31,6 +31,12 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface PrepQuestion {
+  id: string;
+  text: string;
+  added_at: string;
+}
+
 export interface Contact {
   id: string;
   user_id: string;
@@ -46,6 +52,7 @@ export interface Contact {
   last_contacted_at: string | null;
   next_followup_at: string | null;
   notes_summary: string | null;
+  prep_questions_json: PrepQuestion[];
   created_at: string;
   updated_at: string;
 }

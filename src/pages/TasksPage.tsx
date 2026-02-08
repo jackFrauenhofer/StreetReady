@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { format, isPast, isToday } from 'date-fns';
 import { toast } from 'sonner';
-import { Plus, Check, Trash2, Heart, ListTodo, Calendar } from 'lucide-react';
+import { Plus, Trash2, Heart, ListTodo, Calendar, PhoneCall, Sparkles, Loader2, ChevronDown, ChevronRight, X, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
+import { useUpcomingCalls } from '@/hooks/useCallEvents';
+import { useContacts } from '@/hooks/useContacts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,13 +20,102 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import type { PrepQuestion } from '@/lib/types';
 
 export function TasksPage() {
   const { user } = useAuth();
   const { tasks, isLoading, createTask, toggleTaskComplete, deleteTask } = useTasks(user?.id);
+  const { data: upcomingCalls = [] } = useUpcomingCalls(user?.id, 30);
+  const { updateContact } = useContacts(user?.id);
+  const navigate = useNavigate();
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [expandedCalls, setExpandedCalls] = useState<Record<string, boolean>>({});
+  const [newQuestionText, setNewQuestionText] = useState<Record<string, string>>({});
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+
+  const toggleCallExpanded = (callId: string) => {
+    setExpandedCalls((prev) => ({ ...prev, [callId]: !prev[callId] }));
+  };
+
+  const handleAddQuestion = async (contactId: string, questionsJson: unknown[] | null) => {
+    const text = newQuestionText[contactId]?.trim();
+    if (!text) return;
+    const question: PrepQuestion = {
+      id: crypto.randomUUID(),
+      text,
+      added_at: new Date().toISOString(),
+    };
+    const updated = [...((questionsJson as PrepQuestion[]) || []), question];
+    try {
+      await updateContact.mutateAsync({ id: contactId, prep_questions_json: updated as any });
+      setNewQuestionText((prev) => ({ ...prev, [contactId]: '' }));
+    } catch {
+      toast.error('Failed to save question');
+    }
+  };
+
+  const handleDeleteQuestion = async (contactId: string, questionId: string, questionsJson: unknown[] | null) => {
+    const current = ((questionsJson as PrepQuestion[]) || []);
+    const updated = current.filter((q) => q.id !== questionId);
+    try {
+      await updateContact.mutateAsync({ id: contactId, prep_questions_json: updated as any });
+    } catch {
+      toast.error('Failed to delete question');
+    }
+  };
+
+  const handleGenerateQuestions = async (contactId: string, questionsJson: unknown[] | null) => {
+    setGeneratingFor(contactId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Not authenticated');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/generate-call-questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify({ contactId }),
+      });
+
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        throw new Error(`Failed (${resp.status}): ${errBody}`);
+      }
+
+      const { questions } = await resp.json();
+      if (!Array.isArray(questions) || questions.length === 0) {
+        toast.error('No questions generated');
+        return;
+      }
+
+      const newQuestions: PrepQuestion[] = questions.map((text: string) => ({
+        id: crypto.randomUUID(),
+        text,
+        added_at: new Date().toISOString(),
+      }));
+
+      const current = ((questionsJson as PrepQuestion[]) || []);
+      const updated = [...current, ...newQuestions];
+      await updateContact.mutateAsync({ id: contactId, prep_questions_json: updated as any });
+      toast.success(`${newQuestions.length} questions generated!`);
+    } catch (error) {
+      console.error('Generate questions error:', error);
+      toast.error('Failed to generate questions');
+    } finally {
+      setGeneratingFor(null);
+    }
+  };
 
   // Separate tasks by type
   const { thankYouTasks, manualTasks } = useMemo(() => {
@@ -136,6 +227,151 @@ export function TasksPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Prepare for Calls Section */}
+      {upcomingCalls.length > 0 && (
+        <Card className="border-l-4 border-l-blue-500/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <PhoneCall className="h-5 w-5 text-blue-600" />
+              Prepare for Calls
+              <Badge variant="secondary" className="ml-2">
+                {upcomingCalls.length} upcoming
+              </Badge>
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Review contacts and prepare questions before your calls
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {upcomingCalls.map((call) => {
+              const isExpanded = expandedCalls[call.id];
+              const questions = (call.contact?.prep_questions_json as PrepQuestion[]) || [];
+              const contactId = call.contact?.id;
+
+              return (
+                <div key={call.id} className="rounded-lg border bg-card">
+                  <button
+                    type="button"
+                    className="flex items-center gap-3 w-full p-3 text-left hover:bg-muted/50 transition-colors rounded-lg"
+                    onClick={() => toggleCallExpanded(call.id)}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {call.contact?.name || 'Unknown'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {call.contact?.firm && `${call.contact.firm} • `}
+                        {format(new Date(call.start_at), 'MMM d, h:mm a')}
+                      </p>
+                    </div>
+                    {questions.length > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {questions.length} Q
+                      </Badge>
+                    )}
+                  </button>
+
+                  {isExpanded && contactId && (
+                    <div className="px-3 pb-3 space-y-3 border-t pt-3">
+                      {/* Prep Tips */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Prep Checklist</p>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p>• Review their LinkedIn profile</p>
+                          <p>• Research {call.contact?.firm || 'the firm'}{call.contact?.group_name ? ` (${call.contact.group_name})` : ''}</p>
+                          <p>• Prepare thoughtful questions below</p>
+                        </div>
+                      </div>
+
+                      {/* Questions */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your Questions</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            disabled={generatingFor === contactId}
+                            onClick={() => handleGenerateQuestions(contactId, call.contact?.prep_questions_json ?? null)}
+                          >
+                            {generatingFor === contactId ? (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3 w-3" />
+                                AI Generate
+                              </>
+                            )}
+                          </Button>
+                        </div>
+
+                        {questions.length > 0 && (
+                          <div className="space-y-1.5">
+                            {questions.map((q) => (
+                              <div key={q.id} className="flex items-start gap-2 group">
+                                <p className="text-sm text-foreground flex-1 leading-relaxed">• {q.text}</p>
+                                <button
+                                  type="button"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"
+                                  onClick={() => handleDeleteQuestion(contactId, q.id, call.contact?.prep_questions_json ?? null)}
+                                >
+                                  <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Add a question..."
+                            className="h-8 text-sm"
+                            value={newQuestionText[contactId] || ''}
+                            onChange={(e) => setNewQuestionText((prev) => ({ ...prev, [contactId]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleAddQuestion(contactId, call.contact?.prep_questions_json ?? null);
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => handleAddQuestion(contactId, call.contact?.prep_questions_json ?? null)}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* View Contact Link */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs gap-1 text-muted-foreground"
+                        onClick={() => navigate(`/contact/${contactId}`)}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View Contact
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Thank You Tasks Section */}
       <Card>

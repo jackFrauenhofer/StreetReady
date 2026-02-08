@@ -208,6 +208,9 @@ Guidelines:
       return jsonResponse({ error: 'Resume review response invalid' }, { status: 500 });
     }
 
+    // Stamp the review time
+    parsed.reviewed_at = new Date().toISOString();
+
     // Save review results to the resume record
     const { error: updateErr } = await supabaseAdmin
       .from('user_resumes')

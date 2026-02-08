@@ -59,6 +59,7 @@ export function useContacts(userId: string | undefined) {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['contacts', userId] });
       queryClient.invalidateQueries({ queryKey: ['contact', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['upcomingCalls', userId] });
     },
   });
 

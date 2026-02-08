@@ -167,7 +167,7 @@ export function useUpcomingCalls(userId: string | undefined, days: number = 7) {
         .from('call_events')
         .select(`
           *,
-          contact:contacts(id, name, firm, position)
+          contact:contacts(id, name, firm, position, group_name, connection_type, notes_summary, prep_questions_json)
         `)
         .eq('user_id', userId)
         .eq('status', 'scheduled')
@@ -175,7 +175,7 @@ export function useUpcomingCalls(userId: string | undefined, days: number = 7) {
         .lte('start_at', futureDate.toISOString())
         .order('start_at', { ascending: true });
       if (error) throw error;
-      return data as (CallEvent & { contact: { id: string; name: string; firm: string | null; position: string | null } })[];
+      return data as (CallEvent & { contact: { id: string; name: string; firm: string | null; position: string | null; group_name: string | null; connection_type: string | null; notes_summary: string | null; prep_questions_json: unknown[] | null } })[];
     },
     enabled: !!userId,
   });

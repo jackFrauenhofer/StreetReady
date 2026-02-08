@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileText, Upload, Trash2, Check, Loader2, RefreshCw, Star, AlertTriangle, TrendingUp, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { FileText, Upload, Trash2, Check, Loader2, RefreshCw, Star, AlertTriangle, TrendingUp, ChevronRight, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -8,13 +8,53 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useRef } from 'react';
 
 export function ResumeReviewerPage() {
   const { user } = useAuth();
   const { resume, isLoading, isProcessing, isReviewing, uploadResume, deleteResume, reviewResume } = useResume(user?.id);
   const [isDragging, setIsDragging] = useState(false);
+  const [resumeIsNew, setResumeIsNew] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const review = resume?.review_json as ResumeReview | null;
+
+  const getCooldownMs = useCallback(() => {
+    if (!review) return 0;
+    // Use reviewed_at from the review JSON if available, otherwise fall back to
+    // the resume's updated_at (which gets set when review_json is saved)
+    const timestamp = review.reviewed_at || resume?.updated_at;
+    if (!timestamp) return 0;
+    const reviewedAt = new Date(timestamp).getTime();
+    const cooldownEnd = reviewedAt + 24 * 60 * 60 * 1000;
+    return Math.max(0, cooldownEnd - Date.now());
+  }, [review, resume?.updated_at]);
+
+  const canReview = resumeIsNew || getCooldownMs() === 0;
+
+  useEffect(() => {
+    if (canReview) {
+      setCooldownRemaining('');
+      return;
+    }
+
+    const tick = () => {
+      const ms = getCooldownMs();
+      if (ms <= 0) {
+        setCooldownRemaining('');
+        return;
+      }
+      const totalSec = Math.ceil(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      setCooldownRemaining(`${h}h ${m}m ${s}s`);
+    };
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [canReview, getCooldownMs]);
 
   const handleFileSelect = async (file: File) => {
     if (!file) return;
@@ -28,6 +68,7 @@ export function ResumeReviewerPage() {
     }
     try {
       await uploadResume.mutateAsync(file);
+      setResumeIsNew(true);
       toast.success('Resume uploaded successfully!');
     } catch (error) {
       console.error('Upload error:', error);
@@ -63,8 +104,13 @@ export function ResumeReviewerPage() {
 
   const handleReview = async () => {
     if (!resume) return;
+    if (!canReview) {
+      toast.error(`You can only review your resume once every 24 hours. Try again in ${cooldownRemaining}.`);
+      return;
+    }
     try {
       await reviewResume.mutateAsync(resume.id);
+      setResumeIsNew(false);
       toast.success('Resume reviewed successfully!');
     } catch (error) {
       console.error('Review error:', error);
@@ -78,8 +124,6 @@ export function ResumeReviewerPage() {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
-
-  const review = resume?.review_json as ResumeReview | null;
 
   const scoreColor = (score: number, max: number = 10) => {
     const pct = (score / max) * 100;
@@ -182,7 +226,7 @@ export function ResumeReviewerPage() {
               <div className="flex items-center gap-3">
                 <Button
                   onClick={handleReview}
-                  disabled={isReviewing || isProcessing}
+                  disabled={isReviewing || isProcessing || !canReview}
                   className="gap-2"
                 >
                   {isReviewing ? (
@@ -202,7 +246,13 @@ export function ResumeReviewerPage() {
                     </>
                   )}
                 </Button>
-                {!review && !isReviewing && (
+                {!canReview && !isReviewing && cooldownRemaining && (
+                  <p className="text-xs text-orange-600 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Next review available in {cooldownRemaining}. Upload a new resume to review sooner.
+                  </p>
+                )}
+                {canReview && !review && !isReviewing && (
                   <p className="text-xs text-muted-foreground">
                     Get AI-powered scoring, strengths, weaknesses, and improvement suggestions.
                   </p>
