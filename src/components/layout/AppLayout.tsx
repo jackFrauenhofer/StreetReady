@@ -8,10 +8,10 @@ export function AppLayout() {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <main className="flex-1 overflow-auto">
-          <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border px-4 h-14 flex items-center">
+          <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border/50 px-4 h-14 flex items-center">
             <SidebarTrigger className="-ml-1" />
           </header>
-          <div className="p-6">
+          <div className="p-6 max-w-[1400px] mx-auto">
             <Outlet />
           </div>
         </main>

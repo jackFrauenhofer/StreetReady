@@ -26,8 +26,8 @@ export function KanbanColumn({ stage, contacts, scheduledCalls, onEditCall }: Ka
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col h-full bg-muted/30 rounded-lg border border-border p-3',
-        isOver && 'ring-2 ring-primary/50 bg-muted/50'
+        'flex flex-col h-full bg-muted/40 rounded-xl border border-border/50 p-3',
+        isOver && 'ring-2 ring-primary/30 bg-muted/60'
       )}
     >
       <div className="flex items-center gap-2 mb-3 flex-shrink-0">

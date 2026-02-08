@@ -8,80 +8,80 @@
 
 @layer base {
   :root {
-    /* Core background palette - calm whites and grays */
-    --background: 210 20% 99%;
-    --foreground: 222 47% 11%;
+    /* Core background palette - warm cream */
+    --background: 33 33% 97%;
+    --foreground: 0 0% 10%;
 
     /* Card surfaces */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 0 0% 10%;
 
     /* Popover surfaces */
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 0 0% 10%;
 
-    /* Primary - Slate blue for professional feel */
-    --primary: 215 25% 27%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Near-black for strong CTAs */
+    --primary: 0 0% 13%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Light slate for subtle elements */
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 222 47% 11%;
+    /* Secondary - Warm light */
+    --secondary: 30 15% 93%;
+    --secondary-foreground: 0 0% 10%;
 
     /* Muted elements */
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 30 15% 95%;
+    --muted-foreground: 20 5% 45%;
 
-    /* Accent - Soft blue for highlights */
-    --accent: 213 94% 94%;
-    --accent-foreground: 215 25% 27%;
+    /* Accent - Soft coral */
+    --accent: 4 60% 72%;
+    --accent-foreground: 0 0% 100%;
 
     /* Destructive actions */
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
     /* Borders and inputs */
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 215 25% 27%;
+    --border: 30 10% 90%;
+    --input: 30 10% 90%;
+    --ring: 0 0% 13%;
 
     /* Border radius */
     --radius: 0.5rem;
 
-    /* Sidebar - Professional navigation */
-    --sidebar-background: 220 20% 97%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 215 25% 27%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 213 94% 94%;
-    --sidebar-accent-foreground: 215 25% 27%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 215 25% 27%;
+    /* Sidebar - Warm navigation */
+    --sidebar-background: 33 25% 96%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 0 0% 13%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 4 60% 95%;
+    --sidebar-accent-foreground: 0 0% 13%;
+    --sidebar-border: 30 10% 90%;
+    --sidebar-ring: 0 0% 13%;
 
     /* Custom semantic colors for OfferReady */
-    --success: 142 76% 36%;
+    --success: 152 60% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --info: 199 89% 48%;
+    --info: 199 70% 50%;
     --info-foreground: 0 0% 100%;
 
-    /* Stage colors for pipeline */
-    --stage-researching: 210 40% 96%;
-    --stage-messaged: 199 89% 94%;
-    --stage-scheduled: 217 91% 94%;
-    --stage-call-done: 142 76% 94%;
-    --stage-strong-connection: 262 83% 94%;
-    --stage-referral-requested: 38 92% 94%;
-    --stage-interview: 330 81% 94%;
-    --stage-offer: 142 76% 36%;
+    /* Stage colors for pipeline - warm tinted */
+    --stage-researching: 30 20% 95%;
+    --stage-messaged: 199 50% 93%;
+    --stage-scheduled: 217 50% 93%;
+    --stage-call-done: 152 50% 93%;
+    --stage-strong-connection: 262 40% 93%;
+    --stage-referral-requested: 38 60% 93%;
+    --stage-interview: 330 50% 93%;
+    --stage-offer: 152 60% 40%;
 
     /* Relationship strength colors */
-    --strength-1: 0 0% 80%;
-    --strength-2: 215 16% 60%;
-    --strength-3: 215 25% 50%;
-    --strength-4: 215 40% 40%;
-    --strength-5: 215 50% 27%;
+    --strength-1: 30 10% 80%;
+    --strength-2: 20 10% 60%;
+    --strength-3: 15 15% 50%;
+    --strength-4: 10 20% 40%;
+    --strength-5: 0 0% 20%;
   }
 
   .dark {
@@ -198,7 +198,7 @@
 
   /* Contact card */
   .contact-card {
-    @apply bg-card p-3 rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer;
+    @apply bg-card p-3 rounded-xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition-all duration-200 cursor-pointer;
   }
 
   /* Dense table styles */

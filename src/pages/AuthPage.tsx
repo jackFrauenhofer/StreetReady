@@ -165,13 +165,14 @@ export function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="mx-auto w-32 h-32 mb-6">
+          <div className="mx-auto w-20 h-20 mb-4">
             <img src="/favicon.svg" alt="OfferReady" className="w-full h-full" />
           </div>
-          <p className="mt-2 text-muted-foreground">Your personal CRM for investment banking recruiting</p>
+          <h2 className="text-2xl font-semibold text-foreground">OfferReady</h2>
+          <p className="mt-1 text-muted-foreground text-sm">Your personal CRM for investment banking recruiting</p>
         </div>
 
-        <Card className="shadow-sm">
+        <Card className="border-border/60">
           <CardHeader className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-2xl">{getTitle()}</CardTitle>

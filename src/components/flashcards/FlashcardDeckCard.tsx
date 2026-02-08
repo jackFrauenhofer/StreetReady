@@ -15,7 +15,7 @@ export function FlashcardDeckCard({ deck }: FlashcardDeckCardProps) {
 
   return (
     <Card 
-      className="hover:shadow-md transition-shadow cursor-pointer group"
+      className="hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition-all duration-200 cursor-pointer group"
       onClick={() => navigate(`/learning/flashcards/${deck.id}`)}
     >
       <CardHeader className="pb-2">
