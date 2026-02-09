@@ -13,7 +13,7 @@ export function useTasks(userId: string | undefined) {
         .from('tasks')
         .select(`
           *,
-          contact:contacts(id, name, firm)
+          contact:contacts(id, name, firm, notes_summary, prep_questions_json)
         `)
         .eq('user_id', userId)
         .order('due_date', { ascending: true });

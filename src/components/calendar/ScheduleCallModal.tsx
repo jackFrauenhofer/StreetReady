@@ -57,6 +57,7 @@ interface ScheduleCallModalProps {
   defaultDate?: Date;
   isSubmitting?: boolean;
   preselectedContactId?: string;
+  userName?: string;
 }
 
 export function ScheduleCallModal({
@@ -68,6 +69,7 @@ export function ScheduleCallModal({
   isSubmitting,
   preselectedContactId,
   gcalConnected,
+  userName,
 }: ScheduleCallModalProps) {
   const [contactOpen, setContactOpen] = useState(false);
   const [sendInvite, setSendInvite] = useState(false);
@@ -118,7 +120,9 @@ export function ScheduleCallModal({
 
   const handleSubmit = async (data: ScheduleCallFormData) => {
     const selectedContact = contacts.find((c) => c.id === data.contact_id);
-    const title = selectedContact
+    const title = selectedContact && userName
+      ? `${userName} <> ${selectedContact.name} Phone Call`
+      : selectedContact
       ? `Call with ${selectedContact.name}`
       : 'Scheduled Call';
     

@@ -7,6 +7,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { DateSelectArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useContacts } from '@/hooks/useContacts';
 import { useCallEvents } from '@/hooks/useCallEvents';
 import { useInteractions } from '@/hooks/useInteractions';
@@ -19,6 +20,7 @@ import type { CallEvent, CallEventStatus } from '@/lib/types';
 
 export function CalendarPage() {
   const { user } = useAuth();
+  const { profile } = useProfile(user?.id);
   const { contacts } = useContacts(user?.id);
   const { callEvents, isLoading, createCallEvent, updateCallEvent, updateCallEventStatus, deleteCallEvent } = useCallEvents(user?.id);
   const { createInteraction } = useInteractions(user?.id, undefined);
@@ -404,6 +406,7 @@ export function CalendarPage() {
         defaultDate={selectedDate}
         isSubmitting={createCallEvent.isPending}
         gcalConnected={gcalConnected}
+        userName={profile?.name || undefined}
       />
 
       <EditCallModal

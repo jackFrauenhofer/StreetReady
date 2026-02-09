@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useContacts } from '@/hooks/useContacts';
 import { useCallEvents, useScheduledCallsByContact } from '@/hooks/useCallEvents';
 import { useInteractions } from '@/hooks/useInteractions';
@@ -34,6 +35,7 @@ const PIPELINE_STAGES: ContactStage[] = ['researching', 'messaged', 'scheduled',
 
 export function PipelinePage() {
   const { user } = useAuth();
+  const { profile } = useProfile(user?.id);
   const { contacts, updateContactStage, isLoading } = useContacts(user?.id);
   const { createCallEvent, updateCallEvent, updateCallEventStatus, deleteCallEvent } = useCallEvents(user?.id);
   const scheduledCallsByContact = useScheduledCallsByContact(user?.id);
@@ -405,6 +407,7 @@ export function PipelinePage() {
         isSubmitting={createCallEvent.isPending}
         preselectedContactId={scheduleModal.contact?.id}
         gcalConnected={gcalConnected}
+        userName={profile?.name || undefined}
       />
 
       {/* Edit Call Modal for editing scheduled calls from pipeline */}

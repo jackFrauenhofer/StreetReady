@@ -22,8 +22,12 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useTourContext } from '@/hooks/useTour';
 import { PaywallModal } from '@/components/paywall/PaywallModal';
 import { toast } from 'sonner';
+import { useInboundEmails } from '@/hooks/useInboundEmails';
+import { Mail, Copy, Check, Inbox } from 'lucide-react';
+import { format } from 'date-fns';
 
 const profileSchema = z.object({
+  name: z.string().optional(),
   school: z.string().optional(),
   graduation_year: z.coerce.number().min(2020).max(2030).optional(),
   recruiting_goal: z.string().optional(),
@@ -41,6 +45,21 @@ export function SettingsPage() {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const { restartTour } = useTourContext();
+  const { inboundEmails } = useInboundEmails(user?.id);
+  const [copiedForwardAddr, setCopiedForwardAddr] = useState(false);
+
+  const forwardingAddress = 'schedule@inbound.offerready.net';
+
+  const handleCopyForwardingAddress = async () => {
+    try {
+      await navigator.clipboard.writeText(forwardingAddress);
+      setCopiedForwardAddr(true);
+      toast.success('Copied to clipboard');
+      setTimeout(() => setCopiedForwardAddr(false), 2000);
+    } catch {
+      toast.error('Failed to copy');
+    }
+  };
 
   // Handle checkout redirect
   useEffect(() => {
@@ -59,6 +78,7 @@ export function SettingsPage() {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     values: {
+      name: profile?.name || '',
       school: profile?.school || '',
       graduation_year: profile?.graduation_year || undefined,
       recruiting_goal: profile?.recruiting_goal || 'Investment Banking',
@@ -71,6 +91,7 @@ export function SettingsPage() {
   const onSubmit = async (data: ProfileFormData) => {
     try {
       await updateProfile.mutateAsync({
+        name: data.name || null,
         school: data.school || null,
         graduation_year: data.graduation_year || null,
         recruiting_goal: data.recruiting_goal || null,
@@ -109,6 +130,21 @@ export function SettingsPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Your full name" {...field} />
+                    </FormControl>
+                    <FormDescription>Used in calendar invites (e.g. "Jack &lt;&gt; Contact Phone Call")</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
@@ -315,6 +351,75 @@ export function SettingsPage() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Email Forwarding */}
+      <Card className="border-l-4 border-l-blue-500/60">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-blue-600" />
+            Email Scheduling
+          </CardTitle>
+          <CardDescription>
+            Forward recruiter emails to auto-schedule meetings in your pipeline
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">How it works</p>
+            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+              <li>Forward a recruiter's scheduling email to the address below</li>
+              <li>AI extracts the meeting date, time, and contact info</li>
+              <li>The contact and call are auto-added to your pipeline</li>
+              <li>Both you and the recruiter receive a calendar invite</li>
+            </ol>
+          </div>
+          <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
+            <code className="text-sm font-mono flex-1 select-all">{forwardingAddress}</code>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 gap-1.5"
+              onClick={handleCopyForwardingAddress}
+            >
+              {copiedForwardAddr ? (
+                <><Check className="h-3.5 w-3.5" /> Copied</>
+              ) : (
+                <><Copy className="h-3.5 w-3.5" /> Copy</>
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Make sure you forward from the same email you use to sign in to OfferReady ({user?.email}).
+            If the AI can't determine a specific date/time, a task will be created for you to confirm.
+          </p>
+
+          {/* Recent inbound emails log */}
+          {inboundEmails.length > 0 && (
+            <div className="space-y-2 pt-2 border-t">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Inbox className="h-3.5 w-3.5" />
+                Recent Forwarded Emails
+              </p>
+              <div className="space-y-1.5">
+                {inboundEmails.slice(0, 5).map((ie) => (
+                  <div key={ie.id} className="flex items-center gap-2 text-sm p-2 rounded border bg-card">
+                    <Badge
+                      variant={ie.status === 'processed' ? 'default' : ie.status === 'needs_confirmation' ? 'secondary' : 'destructive'}
+                      className="text-xs shrink-0"
+                    >
+                      {ie.status === 'processed' ? 'Scheduled' : ie.status === 'needs_confirmation' ? 'Needs Review' : ie.status === 'ignored' ? 'Ignored' : 'Failed'}
+                    </Badge>
+                    <span className="truncate flex-1">{ie.subject || '(no subject)'}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {format(new Date(ie.created_at), 'MMM d, h:mm a')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
