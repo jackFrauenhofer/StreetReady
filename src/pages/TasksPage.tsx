@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { format, isPast, isToday } from 'date-fns';
 import { toast } from 'sonner';
-import { Plus, Trash2, Heart, ListTodo, Calendar, PhoneCall, Sparkles, Loader2, ChevronDown, ChevronRight, X, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Heart, ListTodo, Calendar, PhoneCall, Sparkles, Loader2, ChevronDown, ChevronRight, X, ExternalLink, Copy, Mail, Check } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { useUpcomingCalls } from '@/hooks/useCallEvents';
@@ -37,6 +37,10 @@ export function TasksPage() {
   const [expandedCalls, setExpandedCalls] = useState<Record<string, boolean>>({});
   const [newQuestionText, setNewQuestionText] = useState<Record<string, string>>({});
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [expandedThankYou, setExpandedThankYou] = useState<Record<string, boolean>>({});
+  const [generatingEmailFor, setGeneratingEmailFor] = useState<string | null>(null);
+  const [generatedEmails, setGeneratedEmails] = useState<Record<string, { subject: string; body: string }>>({});
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const { phase } = useTour();
 
   // Scroll a target element into view within the <main> scroll container
@@ -153,6 +157,57 @@ export function TasksPage() {
     } finally {
       setGeneratingFor(null);
     }
+  };
+
+  const handleGenerateThankYouEmail = async (contactId: string) => {
+    setGeneratingEmailFor(contactId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Not authenticated');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/generate-thankyou-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify({ contactId }),
+      });
+
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        throw new Error(`Failed (${resp.status}): ${errBody}`);
+      }
+
+      const { subject, body } = await resp.json();
+      setGeneratedEmails((prev) => ({ ...prev, [contactId]: { subject, body } }));
+      toast.success('Thank you email generated!');
+    } catch (error) {
+      console.error('Generate thank-you email error:', error);
+      toast.error('Failed to generate email');
+    } finally {
+      setGeneratingEmailFor(null);
+    }
+  };
+
+  const handleCopy = async (text: string, fieldKey: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldKey);
+      toast.success('Copied to clipboard');
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast.error('Failed to copy');
+    }
+  };
+
+  const toggleThankYouExpanded = (taskId: string) => {
+    setExpandedThankYou((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
   };
 
   // Separate tasks by type
@@ -439,15 +494,203 @@ export function TasksPage() {
               No thank you tasks yet. They'll appear here 12 hours after completing a call.
             </p>
           ) : (
-            <div className="space-y-2">
-              {pendingThankYou.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  onToggle={handleToggleComplete}
-                  onDelete={handleDelete}
-                />
-              ))}
+            <div className="space-y-3">
+              {pendingThankYou.map((task) => {
+                const isExpanded = expandedThankYou[task.id];
+                const contactId = task.contact_id;
+                const questions = (task.contact?.prep_questions_json as PrepQuestion[]) || [];
+                const notesSummary = task.contact?.notes_summary || null;
+                const email = generatedEmails[contactId || ''];
+
+                return (
+                  <div key={task.id} className="rounded-lg border bg-card">
+                    {/* Task header row */}
+                    <div className="flex items-center gap-3 p-3">
+                      <Checkbox
+                        checked={task.completed}
+                        onCheckedChange={() => handleToggleComplete(task.id, task.completed)}
+                        className="h-4 w-4"
+                      />
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                        onClick={() => toggleThankYouExpanded(task.id)}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-sm font-medium truncate', task.completed && 'line-through text-muted-foreground')}>
+                            {task.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {task.contact?.name}{task.contact?.firm ? ` • ${task.contact.firm}` : ''}
+                            {task.due_date && ` • Due ${format(new Date(task.due_date), 'MMM d')}`}
+                          </p>
+                        </div>
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100"
+                        onClick={() => handleDelete(task.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </div>
+
+                    {/* Expanded content */}
+                    {isExpanded && contactId && (
+                      <div className="px-3 pb-3 space-y-4 border-t pt-3">
+                        {/* Contact context: notes + questions */}
+                        {(notesSummary || questions.length > 0) && (
+                          <div className="space-y-3">
+                            {notesSummary && (
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</p>
+                                <p className="text-sm text-foreground leading-relaxed">{notesSummary}</p>
+                              </div>
+                            )}
+                            {questions.length > 0 && (
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Prep Questions</p>
+                                <div className="space-y-1">
+                                  {questions.map((q) => (
+                                    <p key={q.id} className="text-sm text-foreground leading-relaxed">• {q.text}</p>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Generate email button */}
+                        {!email && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            disabled={generatingEmailFor === contactId}
+                            onClick={() => handleGenerateThankYouEmail(contactId)}
+                          >
+                            {generatingEmailFor === contactId ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3.5 w-3.5" />
+                                Generate Thank You Email
+                              </>
+                            )}
+                          </Button>
+                        )}
+
+                        {/* Generated email display */}
+                        {email && (
+                          <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Subject</p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs gap-1"
+                                  onClick={() => handleCopy(email.subject, `subject-${contactId}`)}
+                                >
+                                  {copiedField === `subject-${contactId}` ? (
+                                    <><Check className="h-3 w-3" /> Copied</>
+                                  ) : (
+                                    <><Copy className="h-3 w-3" /> Copy</>
+                                  )}
+                                </Button>
+                              </div>
+                              <p className="text-sm font-medium">{email.subject}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Body</p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs gap-1"
+                                  onClick={() => handleCopy(email.body, `body-${contactId}`)}
+                                >
+                                  {copiedField === `body-${contactId}` ? (
+                                    <><Check className="h-3 w-3" /> Copied</>
+                                  ) : (
+                                    <><Copy className="h-3 w-3" /> Copy</>
+                                  )}
+                                </Button>
+                              </div>
+                              <p className="text-sm whitespace-pre-line leading-relaxed">{email.body}</p>
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                onClick={() => handleCopy(`Subject: ${email.subject}\n\n${email.body}`, `full-${contactId}`)}
+                              >
+                                {copiedField === `full-${contactId}` ? (
+                                  <><Check className="h-3 w-3" /> Copied!</>
+                                ) : (
+                                  <><Copy className="h-3 w-3" /> Copy Full Email</>
+                                )}
+                              </Button>
+                              {task.contact && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1.5 text-xs"
+                                  asChild
+                                >
+                                  <a
+                                    href={`mailto:${task.contact.name}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Mail className="h-3 w-3" />
+                                    Open in Email Client
+                                  </a>
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                onClick={() => handleGenerateThankYouEmail(contactId)}
+                                disabled={generatingEmailFor === contactId}
+                              >
+                                {generatingEmailFor === contactId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-3 w-3" />
+                                )}
+                                Regenerate
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* View Contact Link */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-muted-foreground"
+                          onClick={() => navigate(`/contact/${contactId}`)}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View Contact
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {completedThankYou.length > 0 && (
                 <div className="pt-4 border-t">
                   <p className="text-xs text-muted-foreground mb-2">

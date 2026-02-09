@@ -19,6 +19,7 @@ export type CallEventStatus = 'scheduled' | 'completed' | 'canceled';
 export interface Profile {
   id: string;
   user_id: string;
+  name: string | null;
   email: string | null;
   school: string | null;
   graduation_year: number | null;
@@ -81,7 +82,7 @@ export interface Task {
   call_event_id: string | null;
   created_at: string;
   updated_at: string;
-  contact?: { id: string; name: string; firm: string | null };
+  contact?: { id: string; name: string; firm: string | null; notes_summary: string | null; prep_questions_json: PrepQuestion[] | null };
 }
 
 export interface CallEvent {

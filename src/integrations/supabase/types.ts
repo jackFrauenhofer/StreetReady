@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      inbound_emails: {
+        Row: {
+          id: string
+          user_id: string | null
+          from_address: string
+          to_address: string | null
+          subject: string | null
+          body_text: string | null
+          body_html: string | null
+          raw_payload: Json | null
+          parsed_result: Json | null
+          status: Database["public"]["Enums"]["inbound_email_status"]
+          contact_id: string | null
+          call_event_id: string | null
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          from_address: string
+          to_address?: string | null
+          subject?: string | null
+          body_text?: string | null
+          body_html?: string | null
+          raw_payload?: Json | null
+          parsed_result?: Json | null
+          status?: Database["public"]["Enums"]["inbound_email_status"]
+          contact_id?: string | null
+          call_event_id?: string | null
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          from_address?: string
+          to_address?: string | null
+          subject?: string | null
+          body_text?: string | null
+          body_html?: string | null
+          raw_payload?: Json | null
+          parsed_result?: Json | null
+          status?: Database["public"]["Enums"]["inbound_email_status"]
+          contact_id?: string | null
+          call_event_id?: string | null
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_emails_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_call_event_id_fkey"
+            columns: ["call_event_id"]
+            isOneToOne: false
+            referencedRelation: "call_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_events: {
         Row: {
           contact_id: string
@@ -551,6 +617,7 @@ export type Database = {
           email: string | null
           graduation_year: number | null
           id: string
+          name: string | null
           onboarding_completed: boolean | null
           recruiting_goal: string | null
           school: string | null
@@ -566,6 +633,7 @@ export type Database = {
           email?: string | null
           graduation_year?: number | null
           id?: string
+          name?: string | null
           onboarding_completed?: boolean | null
           recruiting_goal?: string | null
           school?: string | null
@@ -581,6 +649,7 @@ export type Database = {
           email?: string | null
           graduation_year?: number | null
           id?: string
+          name?: string | null
           onboarding_completed?: boolean | null
           recruiting_goal?: string | null
           school?: string | null
@@ -831,6 +900,7 @@ export type Database = {
         | "referral_requested"
         | "interview"
         | "offer"
+      inbound_email_status: "processed" | "needs_confirmation" | "failed" | "ignored"
       flashcard_track: "technicals" | "behaviorals"
       interaction_type: "email" | "call" | "coffee_chat"
       lesson_status: "not_started" | "in_progress" | "complete"
