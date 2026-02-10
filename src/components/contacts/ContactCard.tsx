@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Clock, CalendarClock } from 'lucide-react';
+import { Building2, Clock, CalendarClock, Phone } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { RelationshipStrength } from './RelationshipStrength';
 import type { Contact, CallEvent } from '@/lib/types';
@@ -47,6 +47,13 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
                   ? `${contact.position} @ ${contact.firm}`
                   : contact.firm || contact.position}
               </span>
+            </div>
+          )}
+
+          {contact.phone && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Phone className="h-3 w-3 shrink-0" />
+              <span className="truncate">{contact.phone}</span>
             </div>
           )}
 

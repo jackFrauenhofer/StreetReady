@@ -99,6 +99,14 @@ export function useCallEvents(userId: string | undefined) {
           .eq('id', callEvent.contact_id);
       }
 
+      // If canceled, move contact back to 'messaged'
+      if (updateContactStage && status === 'canceled' && callEvent) {
+        await supabase
+          .from('contacts')
+          .update({ stage: 'messaged' })
+          .eq('id', callEvent.contact_id);
+      }
+
       return data;
     },
     onSuccess: () => {

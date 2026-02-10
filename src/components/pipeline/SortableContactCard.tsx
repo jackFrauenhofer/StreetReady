@@ -31,6 +31,7 @@ export function SortableContactCard({ contact, scheduledCall, onEditCall }: Sort
       style={style}
       {...attributes}
       {...listeners}
+      data-contact-card
       className={cn(
         isDragging && 'opacity-50'
       )}

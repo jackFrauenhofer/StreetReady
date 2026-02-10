@@ -353,10 +353,10 @@ export function ContactDetailPage() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="timeline" className="space-y-4">
+      <Tabs defaultValue="prep" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="prep" data-tour="prep-tab">Questions & Notes</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
         <TabsContent value="timeline" className="space-y-4">

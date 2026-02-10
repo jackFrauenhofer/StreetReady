@@ -143,7 +143,7 @@ export function EditCallModal({
   return (
     <>
       <Dialog open={open && !showLogPrompt} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px] overflow-hidden">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <DialogTitle>Edit Call</DialogTitle>
@@ -174,15 +174,15 @@ export function EditCallModal({
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 min-w-0">
                 <FormField
                   control={form.control}
                   name="start_at"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>Start</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <Input type="datetime-local" className="w-full min-w-0" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -193,10 +193,10 @@ export function EditCallModal({
                   control={form.control}
                   name="end_at"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>End</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <Input type="datetime-local" className="w-full min-w-0" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -236,8 +236,8 @@ export function EditCallModal({
                 )}
               />
 
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                <div className="flex items-center gap-2">
                   {event.status === 'scheduled' && (
                     <>
                       <Button
@@ -262,9 +262,6 @@ export function EditCallModal({
                       </Button>
                     </>
                   )}
-                </div>
-
-                <div className="flex gap-2">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button type="button" variant="ghost" size="sm" className="text-destructive">
@@ -286,10 +283,11 @@ export function EditCallModal({
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Saving...' : 'Save Changes'}
-                  </Button>
                 </div>
+
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </Button>
               </div>
             </form>
           </Form>

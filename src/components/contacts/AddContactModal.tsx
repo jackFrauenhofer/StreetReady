@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { useContacts } from '@/hooks/useContacts';
 import { useAuth } from '@/hooks/useAuth';
-import { CONNECTION_TYPES, type ConnectionType } from '@/lib/types';
+import { CONNECTION_TYPES, type ConnectionType, type ContactStage } from '@/lib/types';
 import { toast } from 'sonner';
 import { useSubscription, type UsageData } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/paywall/PaywallModal';
@@ -47,8 +47,19 @@ const contactSchema = z.object({
 
 type ContactFormData = z.infer<typeof contactSchema>;
 
-export function AddContactModal() {
-  const [open, setOpen] = useState(false);
+interface AddContactModalProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  defaultStage?: ContactStage;
+  onContactCreated?: (contact: { id: string; name: string; firm: string | null; email: string | null; stage: ContactStage }) => void;
+  showTrigger?: boolean;
+}
+
+export function AddContactModal({ open: controlledOpen, onOpenChange: controlledOnOpenChange, defaultStage, onContactCreated, showTrigger = true }: AddContactModalProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (controlledOnOpenChange ?? setInternalOpen) : setInternalOpen;
   const { user } = useAuth();
   const { createContact } = useContacts(user?.id);
   const { checkUsage } = useSubscription();
@@ -80,9 +91,11 @@ export function AddContactModal() {
     setOpen(newOpen);
   };
 
+  const stage = defaultStage || 'researching';
+
   const onSubmit = async (data: ContactFormData) => {
     try {
-      await createContact.mutateAsync({
+      const result = await createContact.mutateAsync({
         name: data.name,
         firm: data.firm || null,
         group_name: data.group_name || null,
@@ -91,14 +104,24 @@ export function AddContactModal() {
         phone: null,
         connection_type: data.connection_type as ConnectionType,
         relationship_strength: 1,
-        stage: 'researching',
+        stage,
         last_contacted_at: null,
         next_followup_at: null,
         notes_summary: data.notes_summary || null,
+        prep_questions_json: null,
       });
       toast.success('Contact added successfully');
       setOpen(false);
       form.reset();
+      if (onContactCreated && result) {
+        onContactCreated({
+          id: result.id,
+          name: data.name,
+          firm: data.firm || null,
+          email: data.email || null,
+          stage,
+        });
+      }
     } catch (error) {
       toast.error('Failed to add contact');
     }
@@ -107,12 +130,14 @@ export function AddContactModal() {
   return (
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Contact
-        </Button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Contact
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add New Contact</DialogTitle>

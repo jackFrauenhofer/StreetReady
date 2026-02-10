@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { toast } from 'sonner';
-import { Search } from 'lucide-react';
+import { Search, Mail, Copy, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -23,6 +23,7 @@ import { useCallEvents, useScheduledCallsByContact } from '@/hooks/useCallEvents
 import { useInteractions } from '@/hooks/useInteractions';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { AddContactModal } from '@/components/contacts/AddContactModal';
+import { MessagedPromptModal } from '@/components/contacts/MessagedPromptModal';
 import { CallNotesModal } from '@/components/contacts/CallNotesModal';
 import { ScheduleCallModal } from '@/components/calendar/ScheduleCallModal';
 import { EditCallModal } from '@/components/calendar/EditCallModal';
@@ -68,6 +69,78 @@ export function PipelinePage() {
     stage: ContactStage;
     deleteScheduledCall?: boolean;
   } | null>(null);
+
+  // Messaged prompt modal state (researching → messaged)
+  const [messagedPrompt, setMessagedPrompt] = useState<{
+    open: boolean;
+    contact: Contact | null;
+  }>({ open: false, contact: null });
+
+  // Forwarding address callout
+  const [copiedForwardAddr, setCopiedForwardAddr] = useState(false);
+  const forwardingAddress = 'schedule@inbound.offerready.net';
+  const handleCopyForwardingAddress = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(forwardingAddress);
+      setCopiedForwardAddr(true);
+      toast.success('Copied to clipboard');
+      setTimeout(() => setCopiedForwardAddr(false), 2000);
+    } catch {
+      toast.error('Failed to copy');
+    }
+  };
+
+  const messagedHint = (
+    <div
+      data-column-hint
+      className="mt-2 p-2.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 space-y-1.5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+        <Mail className="h-3.5 w-3.5 shrink-0" />
+        Got a reply?
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Forward it to the address below to auto-schedule a call and send a calendar invite.
+      </p>
+      <div className="flex items-center gap-1.5">
+        <code className="text-[10px] font-mono text-primary/80 truncate flex-1">{forwardingAddress}</code>
+        <button
+          onClick={handleCopyForwardingAddress}
+          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {copiedForwardAddr ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        </button>
+      </div>
+    </div>
+  );
+
+  // Add contact from column click
+  const [addContactModal, setAddContactModal] = useState<{
+    open: boolean;
+    stage: ContactStage;
+  }>({ open: false, stage: 'researching' });
+
+  const handleColumnClick = (stage: ContactStage) => {
+    setAddContactModal({ open: true, stage });
+  };
+
+  const handleContactCreated = (contact: { id: string; name: string; firm: string | null; email: string | null; stage: ContactStage }) => {
+    if (contact.stage === 'scheduled') {
+      // Chain into ScheduleCallModal
+      setScheduleModal({
+        open: true,
+        contact: contacts.find((c) => c.id === contact.id) || {
+          id: contact.id,
+          name: contact.name,
+          firm: contact.firm,
+          email: contact.email,
+          stage: contact.stage,
+        } as Contact,
+      });
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -165,6 +238,12 @@ export function PipelinePage() {
         return;
       }
       
+      // If moving from researching to messaged, show prompt
+      if (contact.stage === 'researching' && newStage === 'messaged') {
+        setMessagedPrompt({ open: true, contact });
+        return;
+      }
+
       // Check if moving FROM scheduled - need to delete the call event
       const isMovingFromScheduled = contact.stage === 'scheduled';
       
@@ -355,22 +434,27 @@ export function PipelinePage() {
           <KanbanColumn
             stage="researching"
             contacts={contactsByStage.researching}
+            onColumnClick={handleColumnClick}
           />
           <div data-tour="messaged-scheduled-columns" className="col-span-2 grid grid-cols-2 gap-4">
             <KanbanColumn
               stage="messaged"
               contacts={contactsByStage.messaged}
+              onColumnClick={handleColumnClick}
+              hint={messagedHint}
             />
             <KanbanColumn
               stage="scheduled"
               contacts={contactsByStage.scheduled}
               scheduledCalls={scheduledCallsByContact}
               onEditCall={handleEditCall}
+              onColumnClick={handleColumnClick}
             />
           </div>
           <KanbanColumn
             stage="call_done"
             contacts={contactsByStage.call_done}
+            onColumnClick={handleColumnClick}
           />
         </div>
 
@@ -392,6 +476,29 @@ export function PipelinePage() {
         contactId={callNotesModal.contactId}
         contactName={callNotesModal.contactName}
         onComplete={handleCallNotesComplete}
+      />
+
+      {/* Messaged Prompt Modal (researching → messaged) */}
+      <MessagedPromptModal
+        open={messagedPrompt.open}
+        onOpenChange={(open) => {
+          if (!open) setMessagedPrompt({ open: false, contact: null });
+        }}
+        contact={messagedPrompt.contact}
+        onComplete={() => {
+          if (messagedPrompt.contact) {
+            updateContactStage.mutate({ id: messagedPrompt.contact.id, stage: 'messaged' });
+          }
+        }}
+      />
+
+      {/* Add Contact Modal (triggered by column click) */}
+      <AddContactModal
+        open={addContactModal.open}
+        onOpenChange={(open) => setAddContactModal((prev) => ({ ...prev, open }))}
+        defaultStage={addContactModal.stage}
+        onContactCreated={handleContactCreated}
+        showTrigger={false}
       />
 
       {/* Schedule Call Modal for pipeline integration */}

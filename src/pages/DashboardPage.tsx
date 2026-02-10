@@ -130,8 +130,8 @@ export function DashboardPage() {
   const showOnboarding = profile && !profile.onboarding_completed;
 
   const completedCallsCount = useMemo(() => {
-    return callEvents.filter((event) => event.status === 'completed').length;
-  }, [callEvents]);
+    return contacts.filter((c) => c.stage === 'call_done').length;
+  }, [contacts]);
 
   // Calculate weekly activity progress
   const weeklyProgress = useMemo(() => {
@@ -199,7 +199,7 @@ export function DashboardPage() {
         <div className="relative z-10 px-8 pt-10 pb-12">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white">
-              Welcome back{profile?.email ? `, ${profile.email.split('@')[0]}` : ''}
+              Welcome back{profile?.name ? `, ${profile.name}` : profile?.email ? `, ${profile.email.split('@')[0]}` : ''}
             </h1>
             <p className="text-white/60 mt-1">
               {format(new Date(), 'EEEE, MMMM d')}
