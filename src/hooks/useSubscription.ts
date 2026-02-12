@@ -70,28 +70,30 @@ export function useSubscription() {
   });
 
   // Check usage for a specific feature (calls the edge function)
-  const checkUsage = async (feature: GatedFeature): Promise<CheckUsageResult> => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token;
-    if (!accessToken) return { allowed: false, plan: 'free', usage: null, limits: FREE_LIMITS };
+  // NOTE: Paywall temporarily disabled — always allow
+  const checkUsage = async (_feature: GatedFeature): Promise<CheckUsageResult> => {
+    return { allowed: true, plan: 'pro', usage: null, limits: null };
 
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/check-usage`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-        apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ feature }),
-    });
+    // const { data: sessionData } = await supabase.auth.getSession();
+    // const accessToken = sessionData.session?.access_token;
+    // if (!accessToken) return { allowed: false, plan: 'free', usage: null, limits: FREE_LIMITS };
 
-    if (!resp.ok) {
-      console.error('check-usage failed:', resp.status);
-      // Fail open — allow the action if the check fails
-      return { allowed: true, plan: 'free', usage: null, limits: null };
-    }
+    // const resp = await fetch(`${SUPABASE_URL}/functions/v1/check-usage`, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     Authorization: `Bearer ${accessToken}`,
+    //     apikey: SUPABASE_ANON_KEY,
+    //   },
+    //   body: JSON.stringify({ feature: _feature }),
+    // });
 
-    return resp.json();
+    // if (!resp.ok) {
+    //   console.error('check-usage failed:', resp.status);
+    //   return { allowed: true, plan: 'free', usage: null, limits: null };
+    // }
+
+    // return resp.json();
   };
 
   // Create a Stripe Checkout Session

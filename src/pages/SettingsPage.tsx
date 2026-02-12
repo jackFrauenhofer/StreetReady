@@ -287,6 +287,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* NOTE: Subscription card hidden while paywall is disabled
       <Card>
         <CardHeader>
           <CardTitle>Subscription</CardTitle>
@@ -353,6 +354,7 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      */}
 
       {/* Email Forwarding */}
       <Card className="border-l-4 border-l-blue-500/60">

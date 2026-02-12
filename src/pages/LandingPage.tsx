@@ -322,7 +322,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Social Proof — Animated Testimonials */}
+      {/* NOTE: Testimonials hidden until real ones are available
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-[1300px] mx-auto">
           <FadeIn>
@@ -366,6 +366,7 @@ export function LandingPage() {
           </FadeIn>
         </div>
       </section>
+      */}
 
       {/* FAQ */}
       <section id="faq" className="py-20 md:py-28 px-6 bg-card border-y border-border/50">
